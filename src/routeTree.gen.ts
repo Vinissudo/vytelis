@@ -9,18 +9,90 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as UsuariosRouteImport } from './routes/usuarios'
+import { Route as RelatoriosRouteImport } from './routes/relatorios'
+import { Route as ProdutosRouteImport } from './routes/produtos'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as LeitosRouteImport } from './routes/leitos'
+import { Route as InventarioRouteImport } from './routes/inventario'
+import { Route as FarmaciaClinicaRouteImport } from './routes/farmacia-clinica'
+import { Route as EstoqueRouteImport } from './routes/estoque'
+import { Route as DispensacoesRouteImport } from './routes/dispensacoes'
+import { Route as DevolucoesRouteImport } from './routes/devolucoes'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
+import { Route as CentroCirurgicoRouteImport } from './routes/centro-cirurgico'
+import { Route as AlmoxarifadoRouteImport } from './routes/almoxarifado'
 import { Route as IndexRouteImport } from './routes/index'
 
+const UsuariosRoute = UsuariosRouteImport.update({
+  id: '/usuarios',
+  path: '/usuarios',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RelatoriosRoute = RelatoriosRouteImport.update({
+  id: '/relatorios',
+  path: '/relatorios',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProdutosRoute = ProdutosRouteImport.update({
+  id: '/produtos',
+  path: '/produtos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LeitosRoute = LeitosRouteImport.update({
+  id: '/leitos',
+  path: '/leitos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InventarioRoute = InventarioRouteImport.update({
+  id: '/inventario',
+  path: '/inventario',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FarmaciaClinicaRoute = FarmaciaClinicaRouteImport.update({
+  id: '/farmacia-clinica',
+  path: '/farmacia-clinica',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EstoqueRoute = EstoqueRouteImport.update({
+  id: '/estoque',
+  path: '/estoque',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DispensacoesRoute = DispensacoesRouteImport.update({
+  id: '/dispensacoes',
+  path: '/dispensacoes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DevolucoesRoute = DevolucoesRouteImport.update({
+  id: '/devolucoes',
+  path: '/devolucoes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfiguracoesRoute = ConfiguracoesRouteImport.update({
+  id: '/configuracoes',
+  path: '/configuracoes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CentroCirurgicoRoute = CentroCirurgicoRouteImport.update({
+  id: '/centro-cirurgico',
+  path: '/centro-cirurgico',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AlmoxarifadoRoute = AlmoxarifadoRouteImport.update({
+  id: '/almoxarifado',
+  path: '/almoxarifado',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -31,36 +103,151 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/almoxarifado': typeof AlmoxarifadoRoute
+  '/centro-cirurgico': typeof CentroCirurgicoRoute
+  '/configuracoes': typeof ConfiguracoesRoute
   '/dashboard': typeof DashboardRoute
+  '/devolucoes': typeof DevolucoesRoute
+  '/dispensacoes': typeof DispensacoesRoute
+  '/estoque': typeof EstoqueRoute
+  '/farmacia-clinica': typeof FarmaciaClinicaRoute
+  '/inventario': typeof InventarioRoute
+  '/leitos': typeof LeitosRoute
   '/login': typeof LoginRoute
+  '/produtos': typeof ProdutosRoute
+  '/relatorios': typeof RelatoriosRoute
+  '/usuarios': typeof UsuariosRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/almoxarifado': typeof AlmoxarifadoRoute
+  '/centro-cirurgico': typeof CentroCirurgicoRoute
+  '/configuracoes': typeof ConfiguracoesRoute
   '/dashboard': typeof DashboardRoute
+  '/devolucoes': typeof DevolucoesRoute
+  '/dispensacoes': typeof DispensacoesRoute
+  '/estoque': typeof EstoqueRoute
+  '/farmacia-clinica': typeof FarmaciaClinicaRoute
+  '/inventario': typeof InventarioRoute
+  '/leitos': typeof LeitosRoute
   '/login': typeof LoginRoute
+  '/produtos': typeof ProdutosRoute
+  '/relatorios': typeof RelatoriosRoute
+  '/usuarios': typeof UsuariosRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/almoxarifado': typeof AlmoxarifadoRoute
+  '/centro-cirurgico': typeof CentroCirurgicoRoute
+  '/configuracoes': typeof ConfiguracoesRoute
   '/dashboard': typeof DashboardRoute
+  '/devolucoes': typeof DevolucoesRoute
+  '/dispensacoes': typeof DispensacoesRoute
+  '/estoque': typeof EstoqueRoute
+  '/farmacia-clinica': typeof FarmaciaClinicaRoute
+  '/inventario': typeof InventarioRoute
+  '/leitos': typeof LeitosRoute
   '/login': typeof LoginRoute
+  '/produtos': typeof ProdutosRoute
+  '/relatorios': typeof RelatoriosRoute
+  '/usuarios': typeof UsuariosRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboard' | '/login'
+  fullPaths:
+    | '/'
+    | '/almoxarifado'
+    | '/centro-cirurgico'
+    | '/configuracoes'
+    | '/dashboard'
+    | '/devolucoes'
+    | '/dispensacoes'
+    | '/estoque'
+    | '/farmacia-clinica'
+    | '/inventario'
+    | '/leitos'
+    | '/login'
+    | '/produtos'
+    | '/relatorios'
+    | '/usuarios'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/login'
-  id: '__root__' | '/' | '/dashboard' | '/login'
+  to:
+    | '/'
+    | '/almoxarifado'
+    | '/centro-cirurgico'
+    | '/configuracoes'
+    | '/dashboard'
+    | '/devolucoes'
+    | '/dispensacoes'
+    | '/estoque'
+    | '/farmacia-clinica'
+    | '/inventario'
+    | '/leitos'
+    | '/login'
+    | '/produtos'
+    | '/relatorios'
+    | '/usuarios'
+  id:
+    | '__root__'
+    | '/'
+    | '/almoxarifado'
+    | '/centro-cirurgico'
+    | '/configuracoes'
+    | '/dashboard'
+    | '/devolucoes'
+    | '/dispensacoes'
+    | '/estoque'
+    | '/farmacia-clinica'
+    | '/inventario'
+    | '/leitos'
+    | '/login'
+    | '/produtos'
+    | '/relatorios'
+    | '/usuarios'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AlmoxarifadoRoute: typeof AlmoxarifadoRoute
+  CentroCirurgicoRoute: typeof CentroCirurgicoRoute
+  ConfiguracoesRoute: typeof ConfiguracoesRoute
   DashboardRoute: typeof DashboardRoute
+  DevolucoesRoute: typeof DevolucoesRoute
+  DispensacoesRoute: typeof DispensacoesRoute
+  EstoqueRoute: typeof EstoqueRoute
+  FarmaciaClinicaRoute: typeof FarmaciaClinicaRoute
+  InventarioRoute: typeof InventarioRoute
+  LeitosRoute: typeof LeitosRoute
   LoginRoute: typeof LoginRoute
+  ProdutosRoute: typeof ProdutosRoute
+  RelatoriosRoute: typeof RelatoriosRoute
+  UsuariosRoute: typeof UsuariosRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/usuarios': {
+      id: '/usuarios'
+      path: '/usuarios'
+      fullPath: '/usuarios'
+      preLoaderRoute: typeof UsuariosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/relatorios': {
+      id: '/relatorios'
+      path: '/relatorios'
+      fullPath: '/relatorios'
+      preLoaderRoute: typeof RelatoriosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/produtos': {
+      id: '/produtos'
+      path: '/produtos'
+      fullPath: '/produtos'
+      preLoaderRoute: typeof ProdutosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -68,11 +255,74 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/leitos': {
+      id: '/leitos'
+      path: '/leitos'
+      fullPath: '/leitos'
+      preLoaderRoute: typeof LeitosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/inventario': {
+      id: '/inventario'
+      path: '/inventario'
+      fullPath: '/inventario'
+      preLoaderRoute: typeof InventarioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/farmacia-clinica': {
+      id: '/farmacia-clinica'
+      path: '/farmacia-clinica'
+      fullPath: '/farmacia-clinica'
+      preLoaderRoute: typeof FarmaciaClinicaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/estoque': {
+      id: '/estoque'
+      path: '/estoque'
+      fullPath: '/estoque'
+      preLoaderRoute: typeof EstoqueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dispensacoes': {
+      id: '/dispensacoes'
+      path: '/dispensacoes'
+      fullPath: '/dispensacoes'
+      preLoaderRoute: typeof DispensacoesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/devolucoes': {
+      id: '/devolucoes'
+      path: '/devolucoes'
+      fullPath: '/devolucoes'
+      preLoaderRoute: typeof DevolucoesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/configuracoes': {
+      id: '/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/configuracoes'
+      preLoaderRoute: typeof ConfiguracoesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/centro-cirurgico': {
+      id: '/centro-cirurgico'
+      path: '/centro-cirurgico'
+      fullPath: '/centro-cirurgico'
+      preLoaderRoute: typeof CentroCirurgicoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/almoxarifado': {
+      id: '/almoxarifado'
+      path: '/almoxarifado'
+      fullPath: '/almoxarifado'
+      preLoaderRoute: typeof AlmoxarifadoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -87,8 +337,20 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AlmoxarifadoRoute: AlmoxarifadoRoute,
+  CentroCirurgicoRoute: CentroCirurgicoRoute,
+  ConfiguracoesRoute: ConfiguracoesRoute,
   DashboardRoute: DashboardRoute,
+  DevolucoesRoute: DevolucoesRoute,
+  DispensacoesRoute: DispensacoesRoute,
+  EstoqueRoute: EstoqueRoute,
+  FarmaciaClinicaRoute: FarmaciaClinicaRoute,
+  InventarioRoute: InventarioRoute,
+  LeitosRoute: LeitosRoute,
   LoginRoute: LoginRoute,
+  ProdutosRoute: ProdutosRoute,
+  RelatoriosRoute: RelatoriosRoute,
+  UsuariosRoute: UsuariosRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
