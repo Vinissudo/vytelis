@@ -21,7 +21,7 @@ import {
 import { useState } from "react";
 
 export const navItems = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/produtos", label: "Produtos", icon: Package },
   { to: "/estoque", label: "Estoque", icon: Boxes },
   { to: "/almoxarifado", label: "Almoxarifado", icon: Warehouse },

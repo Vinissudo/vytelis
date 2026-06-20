@@ -19,7 +19,6 @@ import { Route as FarmaciaClinicaRouteImport } from './routes/farmacia-clinica'
 import { Route as EstoqueRouteImport } from './routes/estoque'
 import { Route as DispensacoesRouteImport } from './routes/dispensacoes'
 import { Route as DevolucoesRouteImport } from './routes/devolucoes'
-import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
 import { Route as CentroCirurgicoRouteImport } from './routes/centro-cirurgico'
 import { Route as AlmoxarifadoRouteImport } from './routes/almoxarifado'
@@ -75,11 +74,6 @@ const DevolucoesRoute = DevolucoesRouteImport.update({
   path: '/devolucoes',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ConfiguracoesRoute = ConfiguracoesRouteImport.update({
   id: '/configuracoes',
   path: '/configuracoes',
@@ -106,7 +100,6 @@ export interface FileRoutesByFullPath {
   '/almoxarifado': typeof AlmoxarifadoRoute
   '/centro-cirurgico': typeof CentroCirurgicoRoute
   '/configuracoes': typeof ConfiguracoesRoute
-  '/dashboard': typeof DashboardRoute
   '/devolucoes': typeof DevolucoesRoute
   '/dispensacoes': typeof DispensacoesRoute
   '/estoque': typeof EstoqueRoute
@@ -123,7 +116,6 @@ export interface FileRoutesByTo {
   '/almoxarifado': typeof AlmoxarifadoRoute
   '/centro-cirurgico': typeof CentroCirurgicoRoute
   '/configuracoes': typeof ConfiguracoesRoute
-  '/dashboard': typeof DashboardRoute
   '/devolucoes': typeof DevolucoesRoute
   '/dispensacoes': typeof DispensacoesRoute
   '/estoque': typeof EstoqueRoute
@@ -141,7 +133,6 @@ export interface FileRoutesById {
   '/almoxarifado': typeof AlmoxarifadoRoute
   '/centro-cirurgico': typeof CentroCirurgicoRoute
   '/configuracoes': typeof ConfiguracoesRoute
-  '/dashboard': typeof DashboardRoute
   '/devolucoes': typeof DevolucoesRoute
   '/dispensacoes': typeof DispensacoesRoute
   '/estoque': typeof EstoqueRoute
@@ -160,7 +151,6 @@ export interface FileRouteTypes {
     | '/almoxarifado'
     | '/centro-cirurgico'
     | '/configuracoes'
-    | '/dashboard'
     | '/devolucoes'
     | '/dispensacoes'
     | '/estoque'
@@ -177,7 +167,6 @@ export interface FileRouteTypes {
     | '/almoxarifado'
     | '/centro-cirurgico'
     | '/configuracoes'
-    | '/dashboard'
     | '/devolucoes'
     | '/dispensacoes'
     | '/estoque'
@@ -194,7 +183,6 @@ export interface FileRouteTypes {
     | '/almoxarifado'
     | '/centro-cirurgico'
     | '/configuracoes'
-    | '/dashboard'
     | '/devolucoes'
     | '/dispensacoes'
     | '/estoque'
@@ -212,7 +200,6 @@ export interface RootRouteChildren {
   AlmoxarifadoRoute: typeof AlmoxarifadoRoute
   CentroCirurgicoRoute: typeof CentroCirurgicoRoute
   ConfiguracoesRoute: typeof ConfiguracoesRoute
-  DashboardRoute: typeof DashboardRoute
   DevolucoesRoute: typeof DevolucoesRoute
   DispensacoesRoute: typeof DispensacoesRoute
   EstoqueRoute: typeof EstoqueRoute
@@ -297,13 +284,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DevolucoesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/configuracoes': {
       id: '/configuracoes'
       path: '/configuracoes'
@@ -340,7 +320,6 @@ const rootRouteChildren: RootRouteChildren = {
   AlmoxarifadoRoute: AlmoxarifadoRoute,
   CentroCirurgicoRoute: CentroCirurgicoRoute,
   ConfiguracoesRoute: ConfiguracoesRoute,
-  DashboardRoute: DashboardRoute,
   DevolucoesRoute: DevolucoesRoute,
   DispensacoesRoute: DispensacoesRoute,
   EstoqueRoute: EstoqueRoute,
