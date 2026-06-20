@@ -54,8 +54,8 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
             <Activity className="size-4" />
           </div>
           <div className="leading-tight">
-            <div className="text-sm font-semibold tracking-tight">MedControl</div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Hospital</div>
+            <div className="text-sm font-semibold tracking-tight">HospitalFlow</div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider">MedControl</div>
           </div>
         </div>
 
