@@ -49,7 +49,7 @@ function LoginPage() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            navigate({ to: "/dashboard" });
+            navigate({ to: "/" });
           }}
           className="w-full max-w-sm space-y-6"
         >
