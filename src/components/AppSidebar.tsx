@@ -17,23 +17,45 @@ import {
   LogOut,
   Search,
   Bell,
+  MapPin,
+  Building2,
 } from "lucide-react";
 import { useState } from "react";
 
-export const navItems = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/produtos", label: "Produtos", icon: Package },
-  { to: "/estoque", label: "Estoque", icon: Boxes },
-  { to: "/almoxarifado", label: "Almoxarifado", icon: Warehouse },
-  { to: "/farmacia-clinica", label: "Farmácia Clínica", icon: Stethoscope },
-  { to: "/centro-cirurgico", label: "Centro Cirúrgico", icon: Scissors },
-  { to: "/leitos", label: "Leitos", icon: BedDouble },
-  { to: "/dispensacoes", label: "Dispensações", icon: Pill },
-  { to: "/devolucoes", label: "Devoluções", icon: Undo2 },
-  { to: "/inventario", label: "Inventário", icon: ClipboardList },
-  { to: "/relatorios", label: "Relatórios", icon: BarChart3 },
-  { to: "/usuarios", label: "Usuários", icon: Users },
-  { to: "/configuracoes", label: "Configurações", icon: Settings },
+export const navGroups = [
+  {
+    label: "Geral",
+    items: [{ to: "/", label: "Dashboard", icon: LayoutDashboard }],
+  },
+  {
+    label: "Operacional",
+    items: [
+      { to: "/produtos", label: "Produtos", icon: Package },
+      { to: "/estoque", label: "Estoque", icon: Boxes },
+      { to: "/almoxarifado", label: "Almoxarifado", icon: Warehouse },
+      { to: "/farmacia-clinica", label: "Farmácia Clínica", icon: Stethoscope },
+      { to: "/centro-cirurgico", label: "Centro Cirúrgico", icon: Scissors },
+      { to: "/dispensacoes", label: "Dispensações", icon: Pill },
+      { to: "/devolucoes", label: "Devoluções", icon: Undo2 },
+      { to: "/inventario", label: "Inventário", icon: ClipboardList },
+    ],
+  },
+  {
+    label: "Cadastros",
+    items: [
+      { to: "/locais", label: "Locais", icon: MapPin },
+      { to: "/setores", label: "Setores", icon: Building2 },
+      { to: "/leitos", label: "Leitos", icon: BedDouble },
+    ],
+  },
+  {
+    label: "Administração",
+    items: [
+      { to: "/relatorios", label: "Relatórios", icon: BarChart3 },
+      { to: "/usuarios", label: "Usuários", icon: Users },
+      { to: "/configuracoes", label: "Configurações", icon: Settings },
+    ],
+  },
 ] as const;
 
 export function AppShell({ children, title }: { children: React.ReactNode; title: string }) {
