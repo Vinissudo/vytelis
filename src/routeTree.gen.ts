@@ -10,9 +10,11 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UsuariosRouteImport } from './routes/usuarios'
+import { Route as SetoresRouteImport } from './routes/setores'
 import { Route as RelatoriosRouteImport } from './routes/relatorios'
 import { Route as ProdutosRouteImport } from './routes/produtos'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as LocaisRouteImport } from './routes/locais'
 import { Route as LeitosRouteImport } from './routes/leitos'
 import { Route as InventarioRouteImport } from './routes/inventario'
 import { Route as FarmaciaClinicaRouteImport } from './routes/farmacia-clinica'
@@ -29,6 +31,11 @@ const UsuariosRoute = UsuariosRouteImport.update({
   path: '/usuarios',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SetoresRoute = SetoresRouteImport.update({
+  id: '/setores',
+  path: '/setores',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RelatoriosRoute = RelatoriosRouteImport.update({
   id: '/relatorios',
   path: '/relatorios',
@@ -42,6 +49,11 @@ const ProdutosRoute = ProdutosRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LocaisRoute = LocaisRouteImport.update({
+  id: '/locais',
+  path: '/locais',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LeitosRoute = LeitosRouteImport.update({
@@ -106,9 +118,11 @@ export interface FileRoutesByFullPath {
   '/farmacia-clinica': typeof FarmaciaClinicaRoute
   '/inventario': typeof InventarioRoute
   '/leitos': typeof LeitosRoute
+  '/locais': typeof LocaisRoute
   '/login': typeof LoginRoute
   '/produtos': typeof ProdutosRoute
   '/relatorios': typeof RelatoriosRoute
+  '/setores': typeof SetoresRoute
   '/usuarios': typeof UsuariosRoute
 }
 export interface FileRoutesByTo {
@@ -122,9 +136,11 @@ export interface FileRoutesByTo {
   '/farmacia-clinica': typeof FarmaciaClinicaRoute
   '/inventario': typeof InventarioRoute
   '/leitos': typeof LeitosRoute
+  '/locais': typeof LocaisRoute
   '/login': typeof LoginRoute
   '/produtos': typeof ProdutosRoute
   '/relatorios': typeof RelatoriosRoute
+  '/setores': typeof SetoresRoute
   '/usuarios': typeof UsuariosRoute
 }
 export interface FileRoutesById {
@@ -139,9 +155,11 @@ export interface FileRoutesById {
   '/farmacia-clinica': typeof FarmaciaClinicaRoute
   '/inventario': typeof InventarioRoute
   '/leitos': typeof LeitosRoute
+  '/locais': typeof LocaisRoute
   '/login': typeof LoginRoute
   '/produtos': typeof ProdutosRoute
   '/relatorios': typeof RelatoriosRoute
+  '/setores': typeof SetoresRoute
   '/usuarios': typeof UsuariosRoute
 }
 export interface FileRouteTypes {
@@ -157,9 +175,11 @@ export interface FileRouteTypes {
     | '/farmacia-clinica'
     | '/inventario'
     | '/leitos'
+    | '/locais'
     | '/login'
     | '/produtos'
     | '/relatorios'
+    | '/setores'
     | '/usuarios'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -173,9 +193,11 @@ export interface FileRouteTypes {
     | '/farmacia-clinica'
     | '/inventario'
     | '/leitos'
+    | '/locais'
     | '/login'
     | '/produtos'
     | '/relatorios'
+    | '/setores'
     | '/usuarios'
   id:
     | '__root__'
@@ -189,9 +211,11 @@ export interface FileRouteTypes {
     | '/farmacia-clinica'
     | '/inventario'
     | '/leitos'
+    | '/locais'
     | '/login'
     | '/produtos'
     | '/relatorios'
+    | '/setores'
     | '/usuarios'
   fileRoutesById: FileRoutesById
 }
@@ -206,9 +230,11 @@ export interface RootRouteChildren {
   FarmaciaClinicaRoute: typeof FarmaciaClinicaRoute
   InventarioRoute: typeof InventarioRoute
   LeitosRoute: typeof LeitosRoute
+  LocaisRoute: typeof LocaisRoute
   LoginRoute: typeof LoginRoute
   ProdutosRoute: typeof ProdutosRoute
   RelatoriosRoute: typeof RelatoriosRoute
+  SetoresRoute: typeof SetoresRoute
   UsuariosRoute: typeof UsuariosRoute
 }
 
@@ -219,6 +245,13 @@ declare module '@tanstack/react-router' {
       path: '/usuarios'
       fullPath: '/usuarios'
       preLoaderRoute: typeof UsuariosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/setores': {
+      id: '/setores'
+      path: '/setores'
+      fullPath: '/setores'
+      preLoaderRoute: typeof SetoresRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/relatorios': {
@@ -240,6 +273,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/locais': {
+      id: '/locais'
+      path: '/locais'
+      fullPath: '/locais'
+      preLoaderRoute: typeof LocaisRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/leitos': {
@@ -326,9 +366,11 @@ const rootRouteChildren: RootRouteChildren = {
   FarmaciaClinicaRoute: FarmaciaClinicaRoute,
   InventarioRoute: InventarioRoute,
   LeitosRoute: LeitosRoute,
+  LocaisRoute: LocaisRoute,
   LoginRoute: LoginRoute,
   ProdutosRoute: ProdutosRoute,
   RelatoriosRoute: RelatoriosRoute,
+  SetoresRoute: SetoresRoute,
   UsuariosRoute: UsuariosRoute,
 }
 export const routeTree = rootRouteImport

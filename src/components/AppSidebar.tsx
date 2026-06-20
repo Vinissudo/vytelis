@@ -17,23 +17,45 @@ import {
   LogOut,
   Search,
   Bell,
+  MapPin,
+  Building2,
 } from "lucide-react";
 import { useState } from "react";
 
-export const navItems = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/produtos", label: "Produtos", icon: Package },
-  { to: "/estoque", label: "Estoque", icon: Boxes },
-  { to: "/almoxarifado", label: "Almoxarifado", icon: Warehouse },
-  { to: "/farmacia-clinica", label: "Farmácia Clínica", icon: Stethoscope },
-  { to: "/centro-cirurgico", label: "Centro Cirúrgico", icon: Scissors },
-  { to: "/leitos", label: "Leitos", icon: BedDouble },
-  { to: "/dispensacoes", label: "Dispensações", icon: Pill },
-  { to: "/devolucoes", label: "Devoluções", icon: Undo2 },
-  { to: "/inventario", label: "Inventário", icon: ClipboardList },
-  { to: "/relatorios", label: "Relatórios", icon: BarChart3 },
-  { to: "/usuarios", label: "Usuários", icon: Users },
-  { to: "/configuracoes", label: "Configurações", icon: Settings },
+export const navGroups = [
+  {
+    label: "Geral",
+    items: [{ to: "/", label: "Dashboard", icon: LayoutDashboard }],
+  },
+  {
+    label: "Operacional",
+    items: [
+      { to: "/produtos", label: "Produtos", icon: Package },
+      { to: "/estoque", label: "Estoque", icon: Boxes },
+      { to: "/almoxarifado", label: "Almoxarifado", icon: Warehouse },
+      { to: "/farmacia-clinica", label: "Farmácia Clínica", icon: Stethoscope },
+      { to: "/centro-cirurgico", label: "Centro Cirúrgico", icon: Scissors },
+      { to: "/dispensacoes", label: "Dispensações", icon: Pill },
+      { to: "/devolucoes", label: "Devoluções", icon: Undo2 },
+      { to: "/inventario", label: "Inventário", icon: ClipboardList },
+    ],
+  },
+  {
+    label: "Cadastros",
+    items: [
+      { to: "/locais", label: "Locais", icon: MapPin },
+      { to: "/setores", label: "Setores", icon: Building2 },
+      { to: "/leitos", label: "Leitos", icon: BedDouble },
+    ],
+  },
+  {
+    label: "Administração",
+    items: [
+      { to: "/relatorios", label: "Relatórios", icon: BarChart3 },
+      { to: "/usuarios", label: "Usuários", icon: Users },
+      { to: "/configuracoes", label: "Configurações", icon: Settings },
+    ],
+  },
 ] as const;
 
 export function AppShell({ children, title }: { children: React.ReactNode; title: string }) {
@@ -59,26 +81,33 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
           </div>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
-          {navItems.map((item) => {
-            const active = pathname === item.to;
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                onClick={() => setOpen(false)}
-                className={`flex items-center gap-3 px-3 h-9 rounded-md text-sm transition-colors ${
-                  active
-                    ? "bg-primary/10 text-primary font-medium"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`}
-              >
-                <Icon className="size-4" />
-                {item.label}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
+          {navGroups.map((group) => (
+            <div key={group.label} className="space-y-0.5">
+              <div className="px-3 mb-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                {group.label}
+              </div>
+              {group.items.map((item) => {
+                const active = pathname === item.to;
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    onClick={() => setOpen(false)}
+                    className={`flex items-center gap-3 px-3 h-9 rounded-md text-sm transition-colors ${
+                      active
+                        ? "bg-primary/10 text-primary font-medium"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    <Icon className="size-4" />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         <div className="border-t border-border p-3">
