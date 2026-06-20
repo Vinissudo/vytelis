@@ -1,25 +1,64 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppSidebar";
-import { TrendingUp, TrendingDown, Pill, BedDouble, Package, AlertTriangle } from "lucide-react";
+import { Boxes, Pill, Undo2, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
 
 export const Route = createFileRoute("/")({
-  head: () => ({ meta: [{ title: "Dashboard — MedControl Hospital" }] }),
+  head: () => ({ meta: [{ title: "HospitalFlow — Dashboard" }] }),
   component: Dashboard,
 });
 
-const kpis = [
-  { label: "Dispensações hoje", value: "1.284", trend: "+12,4%", up: true, icon: Pill },
-  { label: "Leitos ocupados", value: "186 / 240", trend: "77,5%", up: true, icon: BedDouble },
-  { label: "Itens em estoque", value: "24.531", trend: "-2,1%", up: false, icon: Package },
-  { label: "Alertas críticos", value: "7", trend: "Atenção", up: false, icon: AlertTriangle },
+const cards = [
+  {
+    label: "Estoque Total",
+    value: "24.531",
+    sub: "itens cadastrados",
+    trend: "+3,2%",
+    up: true,
+    icon: Boxes,
+    accent: "text-sky-600 bg-sky-50",
+  },
+  {
+    label: "Dispensações Hoje",
+    value: "1.284",
+    sub: "atendimentos realizados",
+    trend: "+12,4%",
+    up: true,
+    icon: Pill,
+    accent: "text-emerald-600 bg-emerald-50",
+  },
+  {
+    label: "Devoluções Hoje",
+    value: "47",
+    sub: "itens devolvidos",
+    trend: "-8,1%",
+    up: false,
+    icon: Undo2,
+    accent: "text-amber-600 bg-amber-50",
+  },
+  {
+    label: "Produtos Vencendo",
+    value: "23",
+    sub: "próximos 30 dias",
+    trend: "Atenção",
+    up: false,
+    icon: AlertTriangle,
+    accent: "text-rose-600 bg-rose-50",
+  },
 ];
 
-const activity = [
-  { user: "Dra. Camila Souza", action: "dispensou Dipirona 500mg", time: "há 2 min", setor: "UTI" },
-  { user: "Auxiliar Lucas R.", action: "registrou entrada de insumos", time: "há 14 min", setor: "Almoxarifado" },
-  { user: "Farm. Pedro Lima", action: "validou prescrição #4821", time: "há 32 min", setor: "Farmácia Clínica" },
-  { user: "Auditor André M.", action: "abriu inventário cíclico", time: "há 1 h", setor: "Inventário" },
-  { user: "Enf. Marina T.", action: "transferiu paciente — Leito 412", time: "há 2 h", setor: "Leitos" },
+const recent = [
+  { name: "Dipirona 500mg", setor: "UTI", qty: "120 un", time: "há 2 min" },
+  { name: "Soro Fisiológico 500ml", setor: "Pronto-Socorro", qty: "45 un", time: "há 14 min" },
+  { name: "Paracetamol 750mg", setor: "Enfermaria 3", qty: "80 un", time: "há 32 min" },
+  { name: "Heparina 5000UI", setor: "Centro Cirúrgico", qty: "12 un", time: "há 1 h" },
+  { name: "Morfina 10mg", setor: "UTI", qty: "8 un", time: "há 2 h" },
+];
+
+const expiring = [
+  { name: "Amoxicilina 500mg", lote: "L-2487", date: "28/06/2026", days: 8 },
+  { name: "Insulina NPH", lote: "L-1129", date: "05/07/2026", days: 15 },
+  { name: "Captopril 25mg", lote: "L-3320", date: "12/07/2026", days: 22 },
+  { name: "Omeprazol 20mg", lote: "L-4501", date: "18/07/2026", days: 28 },
 ];
 
 function Dashboard() {
@@ -27,31 +66,37 @@ function Dashboard() {
     <AppShell title="Dashboard">
       <div className="space-y-6">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Bem-vindo de volta</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">HospitalFlow</h2>
           <p className="text-sm text-muted-foreground mt-1">
             Visão geral das operações hospitalares em tempo real.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {kpis.map((k) => {
-            const Icon = k.icon;
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          {cards.map((c) => {
+            const Icon = c.icon;
             return (
-              <div key={k.label} className="bg-card border border-border rounded-lg p-5">
-                <div className="flex items-center justify-between">
+              <div
+                key={c.label}
+                className="bg-card border border-border rounded-lg p-5 hover:shadow-sm transition-shadow"
+              >
+                <div className="flex items-start justify-between">
                   <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    {k.label}
+                    {c.label}
                   </span>
-                  <Icon className="size-4 text-muted-foreground" />
+                  <div className={`size-8 rounded-md grid place-items-center ${c.accent}`}>
+                    <Icon className="size-4" />
+                  </div>
                 </div>
-                <div className="mt-3 text-2xl font-semibold tracking-tight">{k.value}</div>
+                <div className="mt-3 text-3xl font-semibold tracking-tight">{c.value}</div>
+                <div className="mt-1 text-xs text-muted-foreground">{c.sub}</div>
                 <div
-                  className={`mt-1 inline-flex items-center gap-1 text-xs ${
-                    k.up ? "text-emerald-600" : "text-rose-600"
+                  className={`mt-3 inline-flex items-center gap-1 text-xs font-medium ${
+                    c.up ? "text-emerald-600" : "text-rose-600"
                   }`}
                 >
-                  {k.up ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
-                  {k.trend}
+                  {c.up ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
+                  {c.trend}
                 </div>
               </div>
             );
@@ -61,14 +106,17 @@ function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 bg-card border border-border rounded-lg">
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-              <div className="text-sm font-medium">Dispensações por setor</div>
+              <div className="text-sm font-medium">Dispensações da semana</div>
               <div className="text-xs text-muted-foreground">Últimos 7 dias</div>
             </div>
             <div className="p-5">
               <div className="flex items-end gap-3 h-48">
                 {[40, 65, 50, 80, 72, 95, 60].map((h, i) => (
                   <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                    <div className="w-full rounded-t bg-primary/80" style={{ height: `${h}%` }} />
+                    <div
+                      className="w-full rounded-t bg-primary/80"
+                      style={{ height: `${h}%` }}
+                    />
                     <span className="text-[10px] text-muted-foreground">
                       {["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"][i]}
                     </span>
@@ -80,28 +128,19 @@ function Dashboard() {
 
           <div className="bg-card border border-border rounded-lg">
             <div className="px-5 py-4 border-b border-border">
-              <div className="text-sm font-medium">Estoque crítico</div>
+              <div className="text-sm font-medium">Produtos vencendo</div>
             </div>
             <div className="divide-y divide-border">
-              {[
-                { name: "Morfina 10mg", qty: "8 un", level: "crítico" },
-                { name: "Soro Fisiológico 500ml", qty: "32 un", level: "baixo" },
-                { name: "Heparina 5000UI", qty: "12 un", level: "crítico" },
-                { name: "Paracetamol 750mg", qty: "45 un", level: "baixo" },
-              ].map((it) => (
-                <div key={it.name} className="px-5 py-3 flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-medium">{it.name}</div>
-                    <div className="text-xs text-muted-foreground">{it.qty}</div>
+              {expiring.map((e) => (
+                <div key={e.lote} className="px-5 py-3 flex items-center justify-between">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium truncate">{e.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      Lote {e.lote} · {e.date}
+                    </div>
                   </div>
-                  <span
-                    className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                      it.level === "crítico"
-                        ? "bg-rose-100 text-rose-700"
-                        : "bg-amber-100 text-amber-700"
-                    }`}
-                  >
-                    {it.level}
+                  <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 whitespace-nowrap">
+                    {e.days} dias
                   </span>
                 </div>
               ))}
@@ -111,23 +150,21 @@ function Dashboard() {
 
         <div className="bg-card border border-border rounded-lg">
           <div className="px-5 py-4 border-b border-border">
-            <div className="text-sm font-medium">Atividade recente</div>
+            <div className="text-sm font-medium">Dispensações recentes</div>
           </div>
           <div className="divide-y divide-border">
-            {activity.map((a, i) => (
+            {recent.map((r, i) => (
               <div key={i} className="px-5 py-4 flex items-center gap-4">
-                <div className="size-9 rounded-full bg-primary/10 text-primary grid place-items-center text-xs font-medium">
-                  {a.user.split(" ").slice(0, 2).map((p) => p[0]).join("")}
+                <div className="size-9 rounded-md bg-primary/10 text-primary grid place-items-center">
+                  <Pill className="size-4" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm">
-                    <span className="font-medium">{a.user}</span>{" "}
-                    <span className="text-muted-foreground">{a.action}</span>
-                  </div>
+                  <div className="text-sm font-medium">{r.name}</div>
                   <div className="text-xs text-muted-foreground">
-                    {a.setor} · {a.time}
+                    {r.setor} · {r.qty}
                   </div>
                 </div>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">{r.time}</span>
               </div>
             ))}
           </div>
