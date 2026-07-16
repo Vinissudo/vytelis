@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell, PagePlaceholder } from "@/components/AppSidebar";
 
-export const Route = createFileRoute("/devolucoes")({
+export const Route = createFileRoute("/_authenticated/devolucoes")({
   head: () => ({ meta: [{ title: "Devoluções — MedControl Hospital" }] }),
   component: Page,
 });

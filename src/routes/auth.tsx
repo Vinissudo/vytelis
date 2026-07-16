@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Activity, Lock, Mail, ShieldCheck } from "lucide-react";
 
-export const Route = createFileRoute("/login")({
+export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
       { title: "Entrar — MedControl Hospital" },

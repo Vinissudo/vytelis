@@ -4,7 +4,7 @@ import { QrCode } from "lucide-react";
 import { AppShell } from "@/components/AppSidebar";
 import { CrudShell, FormDialog, Field, StatusBadge, Input } from "@/components/Crud";
 
-export const Route = createFileRoute("/leitos")({
+export const Route = createFileRoute("/_authenticated/leitos")({
   head: () => ({ meta: [{ title: "Leitos — HospitalFlow" }] }),
   component: LeitosPage,
 });
