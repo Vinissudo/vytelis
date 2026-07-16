@@ -23,6 +23,7 @@ import { Route as AuthenticatedFarmaciaClinicaRouteImport } from './routes/_auth
 import { Route as AuthenticatedEstoqueRouteImport } from './routes/_authenticated/estoque'
 import { Route as AuthenticatedDispensacoesRouteImport } from './routes/_authenticated/dispensacoes'
 import { Route as AuthenticatedDevolucoesRouteImport } from './routes/_authenticated/devolucoes'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedCentroCirurgicoRouteImport } from './routes/_authenticated/centro-cirurgico'
 import { Route as AuthenticatedAlmoxarifadoRouteImport } from './routes/_authenticated/almoxarifado'
@@ -98,6 +99,11 @@ const AuthenticatedDevolucoesRoute = AuthenticatedDevolucoesRouteImport.update({
   path: '/devolucoes',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedConfiguracoesRoute =
   AuthenticatedConfiguracoesRouteImport.update({
     id: '/configuracoes',
@@ -123,6 +129,7 @@ export interface FileRoutesByFullPath {
   '/almoxarifado': typeof AuthenticatedAlmoxarifadoRoute
   '/centro-cirurgico': typeof AuthenticatedCentroCirurgicoRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
   '/devolucoes': typeof AuthenticatedDevolucoesRoute
   '/dispensacoes': typeof AuthenticatedDispensacoesRoute
   '/estoque': typeof AuthenticatedEstoqueRoute
@@ -141,6 +148,7 @@ export interface FileRoutesByTo {
   '/almoxarifado': typeof AuthenticatedAlmoxarifadoRoute
   '/centro-cirurgico': typeof AuthenticatedCentroCirurgicoRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
   '/devolucoes': typeof AuthenticatedDevolucoesRoute
   '/dispensacoes': typeof AuthenticatedDispensacoesRoute
   '/estoque': typeof AuthenticatedEstoqueRoute
@@ -161,6 +169,7 @@ export interface FileRoutesById {
   '/_authenticated/almoxarifado': typeof AuthenticatedAlmoxarifadoRoute
   '/_authenticated/centro-cirurgico': typeof AuthenticatedCentroCirurgicoRoute
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
+  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/devolucoes': typeof AuthenticatedDevolucoesRoute
   '/_authenticated/dispensacoes': typeof AuthenticatedDispensacoesRoute
   '/_authenticated/estoque': typeof AuthenticatedEstoqueRoute
@@ -181,6 +190,7 @@ export interface FileRouteTypes {
     | '/almoxarifado'
     | '/centro-cirurgico'
     | '/configuracoes'
+    | '/dashboard'
     | '/devolucoes'
     | '/dispensacoes'
     | '/estoque'
@@ -199,6 +209,7 @@ export interface FileRouteTypes {
     | '/almoxarifado'
     | '/centro-cirurgico'
     | '/configuracoes'
+    | '/dashboard'
     | '/devolucoes'
     | '/dispensacoes'
     | '/estoque'
@@ -218,6 +229,7 @@ export interface FileRouteTypes {
     | '/_authenticated/almoxarifado'
     | '/_authenticated/centro-cirurgico'
     | '/_authenticated/configuracoes'
+    | '/_authenticated/dashboard'
     | '/_authenticated/devolucoes'
     | '/_authenticated/dispensacoes'
     | '/_authenticated/estoque'
@@ -337,6 +349,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDevolucoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/configuracoes': {
       id: '/_authenticated/configuracoes'
       path: '/configuracoes'
@@ -365,6 +384,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAlmoxarifadoRoute: typeof AuthenticatedAlmoxarifadoRoute
   AuthenticatedCentroCirurgicoRoute: typeof AuthenticatedCentroCirurgicoRoute
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDevolucoesRoute: typeof AuthenticatedDevolucoesRoute
   AuthenticatedDispensacoesRoute: typeof AuthenticatedDispensacoesRoute
   AuthenticatedEstoqueRoute: typeof AuthenticatedEstoqueRoute
@@ -382,6 +402,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAlmoxarifadoRoute: AuthenticatedAlmoxarifadoRoute,
   AuthenticatedCentroCirurgicoRoute: AuthenticatedCentroCirurgicoRoute,
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDevolucoesRoute: AuthenticatedDevolucoesRoute,
   AuthenticatedDispensacoesRoute: AuthenticatedDispensacoesRoute,
   AuthenticatedEstoqueRoute: AuthenticatedEstoqueRoute,
