@@ -79,10 +79,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "MedControl Hospital" },
-      { name: "description", content: "Sistema de gestão hospitalar moderno e seguro." },
-      { property: "og:title", content: "MedControl Hospital" },
-      { property: "og:description", content: "Sistema de gestão hospitalar moderno e seguro." },
+      { title: "Vytelis — Plataforma inteligente de operações hospitalares" },
+      {
+        name: "description",
+        content:
+          "Vytelis é a plataforma inteligente de operações hospitalares. O módulo Supply oferece rastreabilidade completa de medicamentos e materiais.",
+      },
+      { property: "og:title", content: "Vytelis — Operações hospitalares inteligentes" },
+      {
+        property: "og:description",
+        content:
+          "Rastreabilidade completa de medicamentos e materiais hospitalares. Substitua planilhas por operação segura e auditável.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
