@@ -53,8 +53,6 @@ export const navGroups = [
   },
 ] as const;
 
-// Placeholder icon export to keep Repeat imported (used in future modules).
-void Repeat;
 
 export function AppShell({ children, title }: { children: React.ReactNode; title: string }) {
   const navigate = useNavigate();
