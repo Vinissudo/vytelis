@@ -5,13 +5,8 @@ import {
   Package,
   Boxes,
   Warehouse,
-  Stethoscope,
-  Scissors,
   BedDouble,
-  Pill,
-  Undo2,
   ClipboardList,
-  BarChart3,
   Users,
   Settings,
   LogOut,
@@ -19,24 +14,24 @@ import {
   Bell,
   MapPin,
   Building2,
+  ShieldCheck,
+
 } from "lucide-react";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 export const navGroups = [
   {
     label: "Geral",
-    items: [{ to: "/", label: "Dashboard", icon: LayoutDashboard }],
+    items: [{ to: "/dashboard", label: "Dashboard", icon: LayoutDashboard }],
   },
   {
-    label: "Operacional",
+    label: "Suprimentos",
     items: [
       { to: "/produtos", label: "Produtos", icon: Package },
       { to: "/estoque", label: "Estoque", icon: Boxes },
       { to: "/almoxarifado", label: "Almoxarifado", icon: Warehouse },
-      { to: "/farmacia-clinica", label: "Farmácia Clínica", icon: Stethoscope },
-      { to: "/centro-cirurgico", label: "Centro Cirúrgico", icon: Scissors },
-      { to: "/dispensacoes", label: "Dispensações", icon: Pill },
-      { to: "/devolucoes", label: "Devoluções", icon: Undo2 },
       { to: "/inventario", label: "Inventário", icon: ClipboardList },
     ],
   },
@@ -51,21 +46,29 @@ export const navGroups = [
   {
     label: "Administração",
     items: [
-      { to: "/relatorios", label: "Relatórios", icon: BarChart3 },
       { to: "/usuarios", label: "Usuários", icon: Users },
+      { to: "/relatorios", label: "Auditoria", icon: ShieldCheck },
       { to: "/configuracoes", label: "Configurações", icon: Settings },
     ],
   },
 ] as const;
 
+
 export function AppShell({ children, title }: { children: React.ReactNode; title: string }) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
 
+  const handleSignOut = async () => {
+    await queryClient.cancelQueries();
+    queryClient.clear();
+    await supabase.auth.signOut();
+    navigate({ to: "/auth", replace: true });
+  };
+
   return (
     <div className="min-h-screen bg-muted/30 flex">
-      {/* Sidebar */}
       <aside
         className={`fixed inset-y-0 left-0 z-40 w-64 bg-card border-r border-border flex flex-col transform transition-transform lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
@@ -76,8 +79,8 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
             <Activity className="size-4" />
           </div>
           <div className="leading-tight">
-            <div className="text-sm font-semibold tracking-tight">HospitalFlow</div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wider">MedControl</div>
+            <div className="text-sm font-semibold tracking-tight">Vytelis</div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Supply</div>
           </div>
         </div>
 
@@ -92,7 +95,7 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
                 const Icon = item.icon;
                 return (
                   <Link
-                    key={item.to}
+                    key={`${group.label}-${item.label}`}
                     to={item.to}
                     onClick={() => setOpen(false)}
                     className={`flex items-center gap-3 px-3 h-9 rounded-md text-sm transition-colors ${
@@ -112,7 +115,7 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
 
         <div className="border-t border-border p-3">
           <button
-            onClick={() => navigate({ to: "/login" })}
+            onClick={handleSignOut}
             className="flex items-center gap-3 px-3 h-9 w-full rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           >
             <LogOut className="size-4" /> Sair
@@ -127,7 +130,6 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
         />
       )}
 
-      {/* Main */}
       <div className="flex-1 lg:ml-64 flex flex-col min-w-0">
         <header className="h-16 bg-card border-b border-border flex items-center gap-4 px-4 sm:px-6 sticky top-0 z-20">
           <button
@@ -152,7 +154,7 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
               <Bell className="size-4" />
             </button>
             <div className="size-9 rounded-full bg-primary/10 text-primary grid place-items-center text-sm font-medium">
-              AD
+              VS
             </div>
           </div>
         </header>
@@ -177,32 +179,11 @@ export function PagePlaceholder({
         <p className="text-sm text-muted-foreground mt-1">{description}</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="bg-card border border-border rounded-lg p-5">
-            <div className="h-3 w-20 bg-muted rounded mb-3" />
-            <div className="h-7 w-24 bg-muted rounded" />
-          </div>
-        ))}
-      </div>
-
-      <div className="bg-card border border-border rounded-lg">
-        <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-          <div className="text-sm font-medium">Visão geral</div>
-          <div className="text-xs text-muted-foreground">Dados de exemplo</div>
-        </div>
-        <div className="p-5 space-y-3">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="flex items-center gap-4">
-              <div className="size-8 rounded-md bg-muted" />
-              <div className="flex-1 space-y-1.5">
-                <div className="h-3 w-1/3 bg-muted rounded" />
-                <div className="h-2.5 w-1/2 bg-muted/70 rounded" />
-              </div>
-              <div className="h-6 w-16 bg-muted rounded" />
-            </div>
-          ))}
-        </div>
+      <div className="bg-card border border-border rounded-lg p-8 text-center">
+        <h3 className="text-base font-semibold">Módulo em preparação</h3>
+        <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
+          Esta funcionalidade será liberada na próxima parte do Vytelis Supply.
+        </p>
       </div>
     </div>
   );

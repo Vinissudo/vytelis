@@ -9,96 +9,32 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as UsuariosRouteImport } from './routes/usuarios'
-import { Route as SetoresRouteImport } from './routes/setores'
-import { Route as RelatoriosRouteImport } from './routes/relatorios'
-import { Route as ProdutosRouteImport } from './routes/produtos'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as LocaisRouteImport } from './routes/locais'
-import { Route as LeitosRouteImport } from './routes/leitos'
-import { Route as InventarioRouteImport } from './routes/inventario'
-import { Route as FarmaciaClinicaRouteImport } from './routes/farmacia-clinica'
-import { Route as EstoqueRouteImport } from './routes/estoque'
-import { Route as DispensacoesRouteImport } from './routes/dispensacoes'
-import { Route as DevolucoesRouteImport } from './routes/devolucoes'
-import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
-import { Route as CentroCirurgicoRouteImport } from './routes/centro-cirurgico'
-import { Route as AlmoxarifadoRouteImport } from './routes/almoxarifado'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
+import { Route as AuthenticatedSetoresRouteImport } from './routes/_authenticated/setores'
+import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
+import { Route as AuthenticatedProdutosRouteImport } from './routes/_authenticated/produtos'
+import { Route as AuthenticatedLocaisRouteImport } from './routes/_authenticated/locais'
+import { Route as AuthenticatedLeitosRouteImport } from './routes/_authenticated/leitos'
+import { Route as AuthenticatedInventarioRouteImport } from './routes/_authenticated/inventario'
+import { Route as AuthenticatedFarmaciaClinicaRouteImport } from './routes/_authenticated/farmacia-clinica'
+import { Route as AuthenticatedEstoqueRouteImport } from './routes/_authenticated/estoque'
+import { Route as AuthenticatedDispensacoesRouteImport } from './routes/_authenticated/dispensacoes'
+import { Route as AuthenticatedDevolucoesRouteImport } from './routes/_authenticated/devolucoes'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
+import { Route as AuthenticatedCentroCirurgicoRouteImport } from './routes/_authenticated/centro-cirurgico'
+import { Route as AuthenticatedAlmoxarifadoRouteImport } from './routes/_authenticated/almoxarifado'
 
-const UsuariosRoute = UsuariosRouteImport.update({
-  id: '/usuarios',
-  path: '/usuarios',
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SetoresRoute = SetoresRouteImport.update({
-  id: '/setores',
-  path: '/setores',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RelatoriosRoute = RelatoriosRouteImport.update({
-  id: '/relatorios',
-  path: '/relatorios',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProdutosRoute = ProdutosRouteImport.update({
-  id: '/produtos',
-  path: '/produtos',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LocaisRoute = LocaisRouteImport.update({
-  id: '/locais',
-  path: '/locais',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LeitosRoute = LeitosRouteImport.update({
-  id: '/leitos',
-  path: '/leitos',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const InventarioRoute = InventarioRouteImport.update({
-  id: '/inventario',
-  path: '/inventario',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FarmaciaClinicaRoute = FarmaciaClinicaRouteImport.update({
-  id: '/farmacia-clinica',
-  path: '/farmacia-clinica',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EstoqueRoute = EstoqueRouteImport.update({
-  id: '/estoque',
-  path: '/estoque',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DispensacoesRoute = DispensacoesRouteImport.update({
-  id: '/dispensacoes',
-  path: '/dispensacoes',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DevolucoesRoute = DevolucoesRouteImport.update({
-  id: '/devolucoes',
-  path: '/devolucoes',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ConfiguracoesRoute = ConfiguracoesRouteImport.update({
-  id: '/configuracoes',
-  path: '/configuracoes',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CentroCirurgicoRoute = CentroCirurgicoRouteImport.update({
-  id: '/centro-cirurgico',
-  path: '/centro-cirurgico',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AlmoxarifadoRoute = AlmoxarifadoRouteImport.update({
-  id: '/almoxarifado',
-  path: '/almoxarifado',
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -106,69 +42,155 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedUsuariosRoute = AuthenticatedUsuariosRouteImport.update({
+  id: '/usuarios',
+  path: '/usuarios',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSetoresRoute = AuthenticatedSetoresRouteImport.update({
+  id: '/setores',
+  path: '/setores',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedRelatoriosRoute = AuthenticatedRelatoriosRouteImport.update({
+  id: '/relatorios',
+  path: '/relatorios',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedProdutosRoute = AuthenticatedProdutosRouteImport.update({
+  id: '/produtos',
+  path: '/produtos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedLocaisRoute = AuthenticatedLocaisRouteImport.update({
+  id: '/locais',
+  path: '/locais',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedLeitosRoute = AuthenticatedLeitosRouteImport.update({
+  id: '/leitos',
+  path: '/leitos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedInventarioRoute = AuthenticatedInventarioRouteImport.update({
+  id: '/inventario',
+  path: '/inventario',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedFarmaciaClinicaRoute =
+  AuthenticatedFarmaciaClinicaRouteImport.update({
+    id: '/farmacia-clinica',
+    path: '/farmacia-clinica',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedEstoqueRoute = AuthenticatedEstoqueRouteImport.update({
+  id: '/estoque',
+  path: '/estoque',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedDispensacoesRoute =
+  AuthenticatedDispensacoesRouteImport.update({
+    id: '/dispensacoes',
+    path: '/dispensacoes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedDevolucoesRoute = AuthenticatedDevolucoesRouteImport.update({
+  id: '/devolucoes',
+  path: '/devolucoes',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedConfiguracoesRoute =
+  AuthenticatedConfiguracoesRouteImport.update({
+    id: '/configuracoes',
+    path: '/configuracoes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCentroCirurgicoRoute =
+  AuthenticatedCentroCirurgicoRouteImport.update({
+    id: '/centro-cirurgico',
+    path: '/centro-cirurgico',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAlmoxarifadoRoute =
+  AuthenticatedAlmoxarifadoRouteImport.update({
+    id: '/almoxarifado',
+    path: '/almoxarifado',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/almoxarifado': typeof AlmoxarifadoRoute
-  '/centro-cirurgico': typeof CentroCirurgicoRoute
-  '/configuracoes': typeof ConfiguracoesRoute
-  '/devolucoes': typeof DevolucoesRoute
-  '/dispensacoes': typeof DispensacoesRoute
-  '/estoque': typeof EstoqueRoute
-  '/farmacia-clinica': typeof FarmaciaClinicaRoute
-  '/inventario': typeof InventarioRoute
-  '/leitos': typeof LeitosRoute
-  '/locais': typeof LocaisRoute
-  '/login': typeof LoginRoute
-  '/produtos': typeof ProdutosRoute
-  '/relatorios': typeof RelatoriosRoute
-  '/setores': typeof SetoresRoute
-  '/usuarios': typeof UsuariosRoute
+  '/auth': typeof AuthRoute
+  '/almoxarifado': typeof AuthenticatedAlmoxarifadoRoute
+  '/centro-cirurgico': typeof AuthenticatedCentroCirurgicoRoute
+  '/configuracoes': typeof AuthenticatedConfiguracoesRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/devolucoes': typeof AuthenticatedDevolucoesRoute
+  '/dispensacoes': typeof AuthenticatedDispensacoesRoute
+  '/estoque': typeof AuthenticatedEstoqueRoute
+  '/farmacia-clinica': typeof AuthenticatedFarmaciaClinicaRoute
+  '/inventario': typeof AuthenticatedInventarioRoute
+  '/leitos': typeof AuthenticatedLeitosRoute
+  '/locais': typeof AuthenticatedLocaisRoute
+  '/produtos': typeof AuthenticatedProdutosRoute
+  '/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/setores': typeof AuthenticatedSetoresRoute
+  '/usuarios': typeof AuthenticatedUsuariosRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/almoxarifado': typeof AlmoxarifadoRoute
-  '/centro-cirurgico': typeof CentroCirurgicoRoute
-  '/configuracoes': typeof ConfiguracoesRoute
-  '/devolucoes': typeof DevolucoesRoute
-  '/dispensacoes': typeof DispensacoesRoute
-  '/estoque': typeof EstoqueRoute
-  '/farmacia-clinica': typeof FarmaciaClinicaRoute
-  '/inventario': typeof InventarioRoute
-  '/leitos': typeof LeitosRoute
-  '/locais': typeof LocaisRoute
-  '/login': typeof LoginRoute
-  '/produtos': typeof ProdutosRoute
-  '/relatorios': typeof RelatoriosRoute
-  '/setores': typeof SetoresRoute
-  '/usuarios': typeof UsuariosRoute
+  '/auth': typeof AuthRoute
+  '/almoxarifado': typeof AuthenticatedAlmoxarifadoRoute
+  '/centro-cirurgico': typeof AuthenticatedCentroCirurgicoRoute
+  '/configuracoes': typeof AuthenticatedConfiguracoesRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/devolucoes': typeof AuthenticatedDevolucoesRoute
+  '/dispensacoes': typeof AuthenticatedDispensacoesRoute
+  '/estoque': typeof AuthenticatedEstoqueRoute
+  '/farmacia-clinica': typeof AuthenticatedFarmaciaClinicaRoute
+  '/inventario': typeof AuthenticatedInventarioRoute
+  '/leitos': typeof AuthenticatedLeitosRoute
+  '/locais': typeof AuthenticatedLocaisRoute
+  '/produtos': typeof AuthenticatedProdutosRoute
+  '/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/setores': typeof AuthenticatedSetoresRoute
+  '/usuarios': typeof AuthenticatedUsuariosRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/almoxarifado': typeof AlmoxarifadoRoute
-  '/centro-cirurgico': typeof CentroCirurgicoRoute
-  '/configuracoes': typeof ConfiguracoesRoute
-  '/devolucoes': typeof DevolucoesRoute
-  '/dispensacoes': typeof DispensacoesRoute
-  '/estoque': typeof EstoqueRoute
-  '/farmacia-clinica': typeof FarmaciaClinicaRoute
-  '/inventario': typeof InventarioRoute
-  '/leitos': typeof LeitosRoute
-  '/locais': typeof LocaisRoute
-  '/login': typeof LoginRoute
-  '/produtos': typeof ProdutosRoute
-  '/relatorios': typeof RelatoriosRoute
-  '/setores': typeof SetoresRoute
-  '/usuarios': typeof UsuariosRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/_authenticated/almoxarifado': typeof AuthenticatedAlmoxarifadoRoute
+  '/_authenticated/centro-cirurgico': typeof AuthenticatedCentroCirurgicoRoute
+  '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
+  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/devolucoes': typeof AuthenticatedDevolucoesRoute
+  '/_authenticated/dispensacoes': typeof AuthenticatedDispensacoesRoute
+  '/_authenticated/estoque': typeof AuthenticatedEstoqueRoute
+  '/_authenticated/farmacia-clinica': typeof AuthenticatedFarmaciaClinicaRoute
+  '/_authenticated/inventario': typeof AuthenticatedInventarioRoute
+  '/_authenticated/leitos': typeof AuthenticatedLeitosRoute
+  '/_authenticated/locais': typeof AuthenticatedLocaisRoute
+  '/_authenticated/produtos': typeof AuthenticatedProdutosRoute
+  '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/_authenticated/setores': typeof AuthenticatedSetoresRoute
+  '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/auth'
     | '/almoxarifado'
     | '/centro-cirurgico'
     | '/configuracoes'
+    | '/dashboard'
     | '/devolucoes'
     | '/dispensacoes'
     | '/estoque'
@@ -176,7 +198,6 @@ export interface FileRouteTypes {
     | '/inventario'
     | '/leitos'
     | '/locais'
-    | '/login'
     | '/produtos'
     | '/relatorios'
     | '/setores'
@@ -184,9 +205,11 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/auth'
     | '/almoxarifado'
     | '/centro-cirurgico'
     | '/configuracoes'
+    | '/dashboard'
     | '/devolucoes'
     | '/dispensacoes'
     | '/estoque'
@@ -194,7 +217,6 @@ export interface FileRouteTypes {
     | '/inventario'
     | '/leitos'
     | '/locais'
-    | '/login'
     | '/produtos'
     | '/relatorios'
     | '/setores'
@@ -202,147 +224,45 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/almoxarifado'
-    | '/centro-cirurgico'
-    | '/configuracoes'
-    | '/devolucoes'
-    | '/dispensacoes'
-    | '/estoque'
-    | '/farmacia-clinica'
-    | '/inventario'
-    | '/leitos'
-    | '/locais'
-    | '/login'
-    | '/produtos'
-    | '/relatorios'
-    | '/setores'
-    | '/usuarios'
+    | '/_authenticated'
+    | '/auth'
+    | '/_authenticated/almoxarifado'
+    | '/_authenticated/centro-cirurgico'
+    | '/_authenticated/configuracoes'
+    | '/_authenticated/dashboard'
+    | '/_authenticated/devolucoes'
+    | '/_authenticated/dispensacoes'
+    | '/_authenticated/estoque'
+    | '/_authenticated/farmacia-clinica'
+    | '/_authenticated/inventario'
+    | '/_authenticated/leitos'
+    | '/_authenticated/locais'
+    | '/_authenticated/produtos'
+    | '/_authenticated/relatorios'
+    | '/_authenticated/setores'
+    | '/_authenticated/usuarios'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AlmoxarifadoRoute: typeof AlmoxarifadoRoute
-  CentroCirurgicoRoute: typeof CentroCirurgicoRoute
-  ConfiguracoesRoute: typeof ConfiguracoesRoute
-  DevolucoesRoute: typeof DevolucoesRoute
-  DispensacoesRoute: typeof DispensacoesRoute
-  EstoqueRoute: typeof EstoqueRoute
-  FarmaciaClinicaRoute: typeof FarmaciaClinicaRoute
-  InventarioRoute: typeof InventarioRoute
-  LeitosRoute: typeof LeitosRoute
-  LocaisRoute: typeof LocaisRoute
-  LoginRoute: typeof LoginRoute
-  ProdutosRoute: typeof ProdutosRoute
-  RelatoriosRoute: typeof RelatoriosRoute
-  SetoresRoute: typeof SetoresRoute
-  UsuariosRoute: typeof UsuariosRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AuthRoute: typeof AuthRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/usuarios': {
-      id: '/usuarios'
-      path: '/usuarios'
-      fullPath: '/usuarios'
-      preLoaderRoute: typeof UsuariosRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/setores': {
-      id: '/setores'
-      path: '/setores'
-      fullPath: '/setores'
-      preLoaderRoute: typeof SetoresRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/relatorios': {
-      id: '/relatorios'
-      path: '/relatorios'
-      fullPath: '/relatorios'
-      preLoaderRoute: typeof RelatoriosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/produtos': {
-      id: '/produtos'
-      path: '/produtos'
-      fullPath: '/produtos'
-      preLoaderRoute: typeof ProdutosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/locais': {
-      id: '/locais'
-      path: '/locais'
-      fullPath: '/locais'
-      preLoaderRoute: typeof LocaisRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/leitos': {
-      id: '/leitos'
-      path: '/leitos'
-      fullPath: '/leitos'
-      preLoaderRoute: typeof LeitosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/inventario': {
-      id: '/inventario'
-      path: '/inventario'
-      fullPath: '/inventario'
-      preLoaderRoute: typeof InventarioRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/farmacia-clinica': {
-      id: '/farmacia-clinica'
-      path: '/farmacia-clinica'
-      fullPath: '/farmacia-clinica'
-      preLoaderRoute: typeof FarmaciaClinicaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/estoque': {
-      id: '/estoque'
-      path: '/estoque'
-      fullPath: '/estoque'
-      preLoaderRoute: typeof EstoqueRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dispensacoes': {
-      id: '/dispensacoes'
-      path: '/dispensacoes'
-      fullPath: '/dispensacoes'
-      preLoaderRoute: typeof DispensacoesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/devolucoes': {
-      id: '/devolucoes'
-      path: '/devolucoes'
-      fullPath: '/devolucoes'
-      preLoaderRoute: typeof DevolucoesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/configuracoes': {
-      id: '/configuracoes'
-      path: '/configuracoes'
-      fullPath: '/configuracoes'
-      preLoaderRoute: typeof ConfiguracoesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/centro-cirurgico': {
-      id: '/centro-cirurgico'
-      path: '/centro-cirurgico'
-      fullPath: '/centro-cirurgico'
-      preLoaderRoute: typeof CentroCirurgicoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/almoxarifado': {
-      id: '/almoxarifado'
-      path: '/almoxarifado'
-      fullPath: '/almoxarifado'
-      preLoaderRoute: typeof AlmoxarifadoRouteImport
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -352,37 +272,158 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/usuarios': {
+      id: '/_authenticated/usuarios'
+      path: '/usuarios'
+      fullPath: '/usuarios'
+      preLoaderRoute: typeof AuthenticatedUsuariosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/setores': {
+      id: '/_authenticated/setores'
+      path: '/setores'
+      fullPath: '/setores'
+      preLoaderRoute: typeof AuthenticatedSetoresRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/relatorios': {
+      id: '/_authenticated/relatorios'
+      path: '/relatorios'
+      fullPath: '/relatorios'
+      preLoaderRoute: typeof AuthenticatedRelatoriosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/produtos': {
+      id: '/_authenticated/produtos'
+      path: '/produtos'
+      fullPath: '/produtos'
+      preLoaderRoute: typeof AuthenticatedProdutosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/locais': {
+      id: '/_authenticated/locais'
+      path: '/locais'
+      fullPath: '/locais'
+      preLoaderRoute: typeof AuthenticatedLocaisRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/leitos': {
+      id: '/_authenticated/leitos'
+      path: '/leitos'
+      fullPath: '/leitos'
+      preLoaderRoute: typeof AuthenticatedLeitosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/inventario': {
+      id: '/_authenticated/inventario'
+      path: '/inventario'
+      fullPath: '/inventario'
+      preLoaderRoute: typeof AuthenticatedInventarioRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/farmacia-clinica': {
+      id: '/_authenticated/farmacia-clinica'
+      path: '/farmacia-clinica'
+      fullPath: '/farmacia-clinica'
+      preLoaderRoute: typeof AuthenticatedFarmaciaClinicaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/estoque': {
+      id: '/_authenticated/estoque'
+      path: '/estoque'
+      fullPath: '/estoque'
+      preLoaderRoute: typeof AuthenticatedEstoqueRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dispensacoes': {
+      id: '/_authenticated/dispensacoes'
+      path: '/dispensacoes'
+      fullPath: '/dispensacoes'
+      preLoaderRoute: typeof AuthenticatedDispensacoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/devolucoes': {
+      id: '/_authenticated/devolucoes'
+      path: '/devolucoes'
+      fullPath: '/devolucoes'
+      preLoaderRoute: typeof AuthenticatedDevolucoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/configuracoes': {
+      id: '/_authenticated/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/configuracoes'
+      preLoaderRoute: typeof AuthenticatedConfiguracoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/centro-cirurgico': {
+      id: '/_authenticated/centro-cirurgico'
+      path: '/centro-cirurgico'
+      fullPath: '/centro-cirurgico'
+      preLoaderRoute: typeof AuthenticatedCentroCirurgicoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/almoxarifado': {
+      id: '/_authenticated/almoxarifado'
+      path: '/almoxarifado'
+      fullPath: '/almoxarifado'
+      preLoaderRoute: typeof AuthenticatedAlmoxarifadoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAlmoxarifadoRoute: typeof AuthenticatedAlmoxarifadoRoute
+  AuthenticatedCentroCirurgicoRoute: typeof AuthenticatedCentroCirurgicoRoute
+  AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedDevolucoesRoute: typeof AuthenticatedDevolucoesRoute
+  AuthenticatedDispensacoesRoute: typeof AuthenticatedDispensacoesRoute
+  AuthenticatedEstoqueRoute: typeof AuthenticatedEstoqueRoute
+  AuthenticatedFarmaciaClinicaRoute: typeof AuthenticatedFarmaciaClinicaRoute
+  AuthenticatedInventarioRoute: typeof AuthenticatedInventarioRoute
+  AuthenticatedLeitosRoute: typeof AuthenticatedLeitosRoute
+  AuthenticatedLocaisRoute: typeof AuthenticatedLocaisRoute
+  AuthenticatedProdutosRoute: typeof AuthenticatedProdutosRoute
+  AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
+  AuthenticatedSetoresRoute: typeof AuthenticatedSetoresRoute
+  AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAlmoxarifadoRoute: AuthenticatedAlmoxarifadoRoute,
+  AuthenticatedCentroCirurgicoRoute: AuthenticatedCentroCirurgicoRoute,
+  AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedDevolucoesRoute: AuthenticatedDevolucoesRoute,
+  AuthenticatedDispensacoesRoute: AuthenticatedDispensacoesRoute,
+  AuthenticatedEstoqueRoute: AuthenticatedEstoqueRoute,
+  AuthenticatedFarmaciaClinicaRoute: AuthenticatedFarmaciaClinicaRoute,
+  AuthenticatedInventarioRoute: AuthenticatedInventarioRoute,
+  AuthenticatedLeitosRoute: AuthenticatedLeitosRoute,
+  AuthenticatedLocaisRoute: AuthenticatedLocaisRoute,
+  AuthenticatedProdutosRoute: AuthenticatedProdutosRoute,
+  AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
+  AuthenticatedSetoresRoute: AuthenticatedSetoresRoute,
+  AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AlmoxarifadoRoute: AlmoxarifadoRoute,
-  CentroCirurgicoRoute: CentroCirurgicoRoute,
-  ConfiguracoesRoute: ConfiguracoesRoute,
-  DevolucoesRoute: DevolucoesRoute,
-  DispensacoesRoute: DispensacoesRoute,
-  EstoqueRoute: EstoqueRoute,
-  FarmaciaClinicaRoute: FarmaciaClinicaRoute,
-  InventarioRoute: InventarioRoute,
-  LeitosRoute: LeitosRoute,
-  LocaisRoute: LocaisRoute,
-  LoginRoute: LoginRoute,
-  ProdutosRoute: ProdutosRoute,
-  RelatoriosRoute: RelatoriosRoute,
-  SetoresRoute: SetoresRoute,
-  UsuariosRoute: UsuariosRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { AppShell } from "@/components/AppSidebar";
 import { CrudShell, FormDialog, Field, StatusBadge, Input } from "@/components/Crud";
 
-export const Route = createFileRoute("/setores")({
+export const Route = createFileRoute("/_authenticated/setores")({
   head: () => ({ meta: [{ title: "Setores — HospitalFlow" }] }),
   component: SetoresPage,
 });

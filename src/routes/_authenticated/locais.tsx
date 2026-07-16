@@ -3,7 +3,7 @@ import { useState } from "react";
 import { AppShell } from "@/components/AppSidebar";
 import { CrudShell, FormDialog, Field, Input } from "@/components/Crud";
 
-export const Route = createFileRoute("/locais")({
+export const Route = createFileRoute("/_authenticated/locais")({
   head: () => ({ meta: [{ title: "Locais — HospitalFlow" }] }),
   component: LocaisPage,
 });

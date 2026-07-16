@@ -8,6 +8,8 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { Toaster } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -77,10 +79,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "MedControl Hospital" },
-      { name: "description", content: "Sistema de gestão hospitalar moderno e seguro." },
-      { property: "og:title", content: "MedControl Hospital" },
-      { property: "og:description", content: "Sistema de gestão hospitalar moderno e seguro." },
+      { title: "Vytelis — Plataforma inteligente de operações hospitalares" },
+      {
+        name: "description",
+        content:
+          "Vytelis é a plataforma inteligente de operações hospitalares. O módulo Supply oferece rastreabilidade completa de medicamentos e materiais.",
+      },
+      { property: "og:title", content: "Vytelis — Operações hospitalares inteligentes" },
+      {
+        property: "og:description",
+        content:
+          "Rastreabilidade completa de medicamentos e materiais hospitalares. Substitua planilhas por operação segura e auditável.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -113,11 +123,24 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const router = useRouter();
+
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+      router.invalidate();
+      if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
+    });
+    return () => {
+      data.subscription.unsubscribe();
+    };
+  }, [router, queryClient]);
 
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      <Toaster richColors position="top-right" />
     </QueryClientProvider>
   );
 }
