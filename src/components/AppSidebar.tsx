@@ -40,8 +40,6 @@ export const navGroups = [
   {
     label: "Cadastros",
     items: [
-      { to: "/produtos", label: "Categorias", icon: Tags },
-      { to: "/produtos", label: "Fornecedores", icon: Truck },
       { to: "/locais", label: "Locais", icon: MapPin },
       { to: "/setores", label: "Setores", icon: Building2 },
       { to: "/leitos", label: "Leitos", icon: BedDouble },
