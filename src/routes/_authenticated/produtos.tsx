@@ -485,6 +485,3 @@ function ToggleRow({
     </label>
   );
 }
-
-// Placeholder Textarea import kept to avoid unused-warning if not used
-void Textarea;
