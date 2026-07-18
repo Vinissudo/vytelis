@@ -240,6 +240,7 @@ export type Database = {
           active: boolean
           barcode: string | null
           category_id: string | null
+          controlled_drug: boolean
           created_at: string
           created_by: string | null
           default_supplier_id: string | null
@@ -250,6 +251,11 @@ export type Database = {
           id: string
           internal_code: string | null
           manufacturer: string | null
+          maximum_stock: number | null
+          minimum_stock: number | null
+          requires_batch: boolean
+          requires_expiration_date: boolean
+          short_description: string | null
           unit: string | null
           updated_at: string
           updated_by: string | null
@@ -258,6 +264,7 @@ export type Database = {
           active?: boolean
           barcode?: string | null
           category_id?: string | null
+          controlled_drug?: boolean
           created_at?: string
           created_by?: string | null
           default_supplier_id?: string | null
@@ -268,6 +275,11 @@ export type Database = {
           id?: string
           internal_code?: string | null
           manufacturer?: string | null
+          maximum_stock?: number | null
+          minimum_stock?: number | null
+          requires_batch?: boolean
+          requires_expiration_date?: boolean
+          short_description?: string | null
           unit?: string | null
           updated_at?: string
           updated_by?: string | null
@@ -276,6 +288,7 @@ export type Database = {
           active?: boolean
           barcode?: string | null
           category_id?: string | null
+          controlled_drug?: boolean
           created_at?: string
           created_by?: string | null
           default_supplier_id?: string | null
@@ -286,6 +299,11 @@ export type Database = {
           id?: string
           internal_code?: string | null
           manufacturer?: string | null
+          maximum_stock?: number | null
+          minimum_stock?: number | null
+          requires_batch?: boolean
+          requires_expiration_date?: boolean
+          short_description?: string | null
           unit?: string | null
           updated_at?: string
           updated_by?: string | null
@@ -597,6 +615,10 @@ export type Database = {
     }
     Functions: {
       can_operate_stock: { Args: { _user_id: string }; Returns: boolean }
+      create_product_with_initial_entry: {
+        Args: { p_entry: Json; p_product: Json }
+        Returns: Json
+      }
       current_hospital_id: { Args: never; Returns: string }
       has_role: {
         Args: {

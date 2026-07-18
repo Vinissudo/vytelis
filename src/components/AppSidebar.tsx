@@ -29,7 +29,7 @@ export const navGroups = [
   {
     label: "Suprimentos",
     items: [
-      { to: "/produtos", label: "Produtos", icon: Package },
+      { to: "/produtos", label: "Cadastro Mestre", icon: Package },
       { to: "/estoque", label: "Estoque", icon: Boxes },
       { to: "/almoxarifado", label: "Almoxarifado", icon: Warehouse },
       { to: "/inventario", label: "Inventário", icon: ClipboardList },
