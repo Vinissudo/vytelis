@@ -37,11 +37,16 @@ export const lookupProductByBarcode = createServerFn({ method: "POST" })
     return (row as ProductLookup | null) ?? null;
   });
 
+const numericString = z
+  .union([z.number(), z.string()])
+  .transform((v) => (typeof v === "number" ? v : v.trim()))
+  .refine((v) => v === "" || !Number.isNaN(Number(v)), { message: "Valor numérico inválido" });
+
 const productPayload = z.object({
   id: z.string().uuid().optional(),
-  barcode: z.string().trim().optional(),
-  internal_code: z.string().trim().optional(),
-  description: z.string().trim().min(1).max(500).optional(),
+  barcode: z.string().trim().max(120).optional(),
+  internal_code: z.string().trim().max(60).optional(),
+  description: z.string().trim().min(2, "Descrição obrigatória").max(500).optional(),
   short_description: z.string().trim().max(120).optional(),
   manufacturer: z.string().trim().max(200).optional(),
   unit: z.string().trim().max(20).optional(),
@@ -50,16 +55,21 @@ const productPayload = z.object({
   controlled_drug: z.boolean().optional(),
   requires_batch: z.boolean().optional(),
   requires_expiration_date: z.boolean().optional(),
-  minimum_stock: z.union([z.number(), z.string()]).optional(),
-  maximum_stock: z.union([z.number(), z.string()]).optional(),
+  minimum_stock: numericString.optional(),
+  maximum_stock: numericString.optional(),
 });
 
 const entryPayload = z.object({
   stock_center_id: z.string().uuid().optional(),
   batch: z.string().trim().max(60).optional(),
   expiration_date: z.string().trim().optional(),
-  quantity: z.union([z.number(), z.string()]),
-  unit_cost: z.union([z.number(), z.string()]).optional(),
+  quantity: numericString.refine(
+    (v) => v !== "" && Number(v) > 0,
+    { message: "A quantidade deve ser maior que zero" },
+  ),
+  unit_cost: numericString
+    .refine((v) => v === "" || Number(v) >= 0, { message: "O custo não pode ser negativo" })
+    .optional(),
   observation: z.string().trim().max(500).optional(),
 });
 
