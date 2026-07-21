@@ -37,11 +37,16 @@ export const lookupProductByBarcode = createServerFn({ method: "POST" })
     return (row as ProductLookup | null) ?? null;
   });
 
+const numericString = z
+  .union([z.number(), z.string()])
+  .transform((v) => (typeof v === "number" ? v : v.trim()))
+  .refine((v) => v === "" || !Number.isNaN(Number(v)), { message: "Valor numérico inválido" });
+
 const productPayload = z.object({
   id: z.string().uuid().optional(),
-  barcode: z.string().trim().optional(),
-  internal_code: z.string().trim().optional(),
-  description: z.string().trim().min(1).max(500).optional(),
+  barcode: z.string().trim().max(120).optional(),
+  internal_code: z.string().trim().max(60).optional(),
+  description: z.string().trim().min(2, "Descrição obrigatória").max(500).optional(),
   short_description: z.string().trim().max(120).optional(),
   manufacturer: z.string().trim().max(200).optional(),
   unit: z.string().trim().max(20).optional(),
@@ -50,16 +55,21 @@ const productPayload = z.object({
   controlled_drug: z.boolean().optional(),
   requires_batch: z.boolean().optional(),
   requires_expiration_date: z.boolean().optional(),
-  minimum_stock: z.union([z.number(), z.string()]).optional(),
-  maximum_stock: z.union([z.number(), z.string()]).optional(),
+  minimum_stock: numericString.optional(),
+  maximum_stock: numericString.optional(),
 });
 
 const entryPayload = z.object({
   stock_center_id: z.string().uuid().optional(),
   batch: z.string().trim().max(60).optional(),
   expiration_date: z.string().trim().optional(),
-  quantity: z.union([z.number(), z.string()]),
-  unit_cost: z.union([z.number(), z.string()]).optional(),
+  quantity: numericString.refine(
+    (v) => v !== "" && Number(v) > 0,
+    { message: "A quantidade deve ser maior que zero" },
+  ),
+  unit_cost: numericString
+    .refine((v) => v === "" || Number(v) >= 0, { message: "O custo não pode ser negativo" })
+    .optional(),
   observation: z.string().trim().max(500).optional(),
 });
 
@@ -81,14 +91,21 @@ export const createProductWithInitialEntry = createServerFn({ method: "POST" })
     );
     if (error) {
       const map: Record<string, string> = {
-        duplicate_barcode: "Já existe um produto com este código de barras.",
-        duplicate_internal_code: "Já existe um produto com este código interno.",
+        duplicate_barcode: "Já existe um produto ativo com este código de barras.",
+        duplicate_internal_code: "Já existe um produto ativo com este código interno.",
         invalid_quantity: "A quantidade deve ser maior que zero.",
-        invalid_cost: "Custo inválido.",
-        no_stock_center: "Nenhum local de estoque disponível.",
-        no_hospital: "Perfil sem hospital vinculado.",
+        invalid_cost: "Custo inválido — informe um valor igual ou maior que zero.",
+        invalid_description: "Descrição do produto é obrigatória (mínimo 2 caracteres).",
+        invalid_stock_center: "Local de estoque inválido ou inativo.",
+        stock_center_hospital_mismatch: "Local de estoque não pertence ao seu hospital.",
+        no_stock_center: "Nenhum local de estoque disponível para o seu hospital.",
+        no_hospital: "Perfil sem hospital vinculado. Contate o administrador.",
         forbidden: "Você não tem permissão para cadastrar produtos.",
-        product_not_found: "Produto não encontrado.",
+        not_authenticated: "Sessão expirada. Faça login novamente.",
+        product_not_found: "Produto não encontrado ou removido.",
+        batch_required: "Este produto exige informação de lote.",
+        expiration_required: "Este produto exige data de validade.",
+        expiration_in_past: "A data de validade não pode ser anterior a hoje.",
       };
       const msg = map[error.message] ?? error.message;
       throw new Error(msg);
