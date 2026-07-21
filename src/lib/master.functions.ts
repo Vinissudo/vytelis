@@ -81,14 +81,21 @@ export const createProductWithInitialEntry = createServerFn({ method: "POST" })
     );
     if (error) {
       const map: Record<string, string> = {
-        duplicate_barcode: "Já existe um produto com este código de barras.",
-        duplicate_internal_code: "Já existe um produto com este código interno.",
+        duplicate_barcode: "Já existe um produto ativo com este código de barras.",
+        duplicate_internal_code: "Já existe um produto ativo com este código interno.",
         invalid_quantity: "A quantidade deve ser maior que zero.",
-        invalid_cost: "Custo inválido.",
-        no_stock_center: "Nenhum local de estoque disponível.",
-        no_hospital: "Perfil sem hospital vinculado.",
+        invalid_cost: "Custo inválido — informe um valor igual ou maior que zero.",
+        invalid_description: "Descrição do produto é obrigatória (mínimo 2 caracteres).",
+        invalid_stock_center: "Local de estoque inválido ou inativo.",
+        stock_center_hospital_mismatch: "Local de estoque não pertence ao seu hospital.",
+        no_stock_center: "Nenhum local de estoque disponível para o seu hospital.",
+        no_hospital: "Perfil sem hospital vinculado. Contate o administrador.",
         forbidden: "Você não tem permissão para cadastrar produtos.",
-        product_not_found: "Produto não encontrado.",
+        not_authenticated: "Sessão expirada. Faça login novamente.",
+        product_not_found: "Produto não encontrado ou removido.",
+        batch_required: "Este produto exige informação de lote.",
+        expiration_required: "Este produto exige data de validade.",
+        expiration_in_past: "A data de validade não pode ser anterior a hoje.",
       };
       const msg = map[error.message] ?? error.message;
       throw new Error(msg);
