@@ -611,7 +611,39 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_product_stock: {
+        Row: {
+          batch: string | null
+          expiration_date: string | null
+          hospital_id: string | null
+          product_id: string | null
+          quantity: number | null
+          stock_center_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movements_hospital_id_fkey"
+            columns: ["hospital_id"]
+            isOneToOne: false
+            referencedRelation: "hospitals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movements_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movements_stock_center_id_fkey"
+            columns: ["stock_center_id"]
+            isOneToOne: false
+            referencedRelation: "stock_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       can_operate_stock: { Args: { _user_id: string }; Returns: boolean }
