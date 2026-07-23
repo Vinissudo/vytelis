@@ -233,23 +233,32 @@ export const listRecentEntries = createServerFn({ method: "GET" })
   .handler(async ({ context }): Promise<RecentEntry[]> => {
     const { data, error } = await context.supabase
       .from("movements")
-      .select("id, occurred_at, quantity, batch, products(barcode, description), profiles(full_name)")
+      .select("id, occurred_at, quantity, batch, user_id, products(barcode, description)")
       .eq("movement_type", "initial_entry")
       .order("occurred_at", { ascending: false })
       .limit(10);
     if (error) throw new Error(error.message);
-    return ((data ?? []) as Array<{
-      id: string; occurred_at: string; quantity: number; batch: string | null;
+    const rows = (data ?? []) as Array<{
+      id: string; occurred_at: string; quantity: number; batch: string | null; user_id: string | null;
       products: { barcode: string | null; description: string } | null;
-      profiles: { full_name: string | null } | null;
-    }>).map((r) => ({
+    }>;
+    const userIds = Array.from(new Set(rows.map((r) => r.user_id).filter((v): v is string => !!v)));
+    const names = new Map<string, string>();
+    if (userIds.length) {
+      const { data: profs } = await context.supabase
+        .from("profiles").select("id, full_name").in("id", userIds);
+      ((profs ?? []) as { id: string; full_name: string | null }[]).forEach((p) => {
+        if (p.full_name) names.set(p.id, p.full_name);
+      });
+    }
+    return rows.map((r) => ({
       id: r.id,
       occurred_at: r.occurred_at,
       quantity: Number(r.quantity),
       batch: r.batch,
       barcode: r.products?.barcode ?? null,
       description: r.products?.description ?? "—",
-      user_name: r.profiles?.full_name ?? null,
+      user_name: r.user_id ? names.get(r.user_id) ?? null : null,
     }));
   });
 
