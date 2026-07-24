@@ -21,20 +21,42 @@ export interface ProductLookup {
   maximum_stock: number | null;
 }
 
+const PRODUCT_COLS =
+  "id, internal_code, barcode, description, short_description, manufacturer, unit, category_id, default_supplier_id, controlled_drug, requires_batch, requires_expiration_date, minimum_stock, maximum_stock";
+
 export const lookupProductByBarcode = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => barcodeSchema.parse(input))
   .handler(async ({ data, context }): Promise<ProductLookup | null> => {
     const { data: row, error } = await context.supabase
       .from("products")
-      .select(
-        "id, internal_code, barcode, description, short_description, manufacturer, unit, category_id, default_supplier_id, controlled_drug, requires_batch, requires_expiration_date, minimum_stock, maximum_stock",
-      )
+      .select(PRODUCT_COLS)
       .eq("barcode", data.barcode)
       .is("deleted_at", null)
       .maybeSingle();
     if (error) throw new Error(error.message);
     return (row as ProductLookup | null) ?? null;
+  });
+
+const searchSchema = z.object({ q: z.string().trim().min(1).max(120) });
+
+export const searchProducts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => searchSchema.parse(input))
+  .handler(async ({ data, context }): Promise<ProductLookup[]> => {
+    const term = data.q.replace(/[%_]/g, (m) => `\\${m}`);
+    const pattern = `%${term}%`;
+    const { data: rows, error } = await context.supabase
+      .from("products")
+      .select(PRODUCT_COLS)
+      .is("deleted_at", null)
+      .or(
+        `barcode.ilike.${pattern},internal_code.ilike.${pattern},description.ilike.${pattern},short_description.ilike.${pattern}`,
+      )
+      .order("description", { ascending: true })
+      .limit(15);
+    if (error) throw new Error(error.message);
+    return (rows ?? []) as ProductLookup[];
   });
 
 const numericString = z
@@ -78,6 +100,24 @@ const createSchema = z.object({
   entry: entryPayload,
 });
 
+const RPC_ERROR_MAP: Record<string, string> = {
+  duplicate_barcode: "Já existe um produto ativo com este código de barras.",
+  duplicate_internal_code: "Já existe um produto ativo com este código interno.",
+  invalid_quantity: "A quantidade deve ser maior que zero.",
+  invalid_cost: "Custo inválido — informe um valor igual ou maior que zero.",
+  invalid_description: "Descrição do produto é obrigatória (mínimo 2 caracteres).",
+  invalid_stock_center: "Local de estoque inválido ou inativo.",
+  stock_center_hospital_mismatch: "Local de estoque não pertence ao seu hospital.",
+  no_stock_center: "Nenhum local de estoque disponível para o seu hospital.",
+  no_hospital: "Perfil sem hospital vinculado. Contate o administrador.",
+  forbidden: "Você não tem permissão para cadastrar produtos.",
+  not_authenticated: "Sessão expirada. Faça login novamente.",
+  product_not_found: "Produto não encontrado ou removido.",
+  batch_required: "Este produto exige informação de lote.",
+  expiration_required: "Este produto exige data de validade.",
+  expiration_in_past: "A data de validade não pode ser anterior a hoje.",
+};
+
 export const createProductWithInitialEntry = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => createSchema.parse(input))
@@ -90,27 +130,88 @@ export const createProductWithInitialEntry = createServerFn({ method: "POST" })
       },
     );
     if (error) {
-      const map: Record<string, string> = {
-        duplicate_barcode: "Já existe um produto ativo com este código de barras.",
-        duplicate_internal_code: "Já existe um produto ativo com este código interno.",
-        invalid_quantity: "A quantidade deve ser maior que zero.",
-        invalid_cost: "Custo inválido — informe um valor igual ou maior que zero.",
-        invalid_description: "Descrição do produto é obrigatória (mínimo 2 caracteres).",
-        invalid_stock_center: "Local de estoque inválido ou inativo.",
-        stock_center_hospital_mismatch: "Local de estoque não pertence ao seu hospital.",
-        no_stock_center: "Nenhum local de estoque disponível para o seu hospital.",
-        no_hospital: "Perfil sem hospital vinculado. Contate o administrador.",
-        forbidden: "Você não tem permissão para cadastrar produtos.",
-        not_authenticated: "Sessão expirada. Faça login novamente.",
-        product_not_found: "Produto não encontrado ou removido.",
-        batch_required: "Este produto exige informação de lote.",
-        expiration_required: "Este produto exige data de validade.",
-        expiration_in_past: "A data de validade não pode ser anterior a hoje.",
-      };
-      const msg = map[error.message] ?? error.message;
-      throw new Error(msg);
+      throw new Error(RPC_ERROR_MAP[error.message] ?? error.message);
     }
     return result as { product_id: string; stock_item_id: string };
+  });
+
+const updateSchema = z.object({
+  id: z.string().uuid(),
+  patch: z.object({
+    barcode: z.string().trim().max(120).nullable().optional(),
+    internal_code: z.string().trim().max(60).nullable().optional(),
+    description: z.string().trim().min(2).max(500).optional(),
+    short_description: z.string().trim().max(120).nullable().optional(),
+    manufacturer: z.string().trim().max(200).nullable().optional(),
+    unit: z.string().trim().max(20).nullable().optional(),
+    category_id: z.string().uuid().nullable().optional(),
+    default_supplier_id: z.string().uuid().nullable().optional(),
+    controlled_drug: z.boolean().optional(),
+    requires_batch: z.boolean().optional(),
+    requires_expiration_date: z.boolean().optional(),
+    minimum_stock: numericString.optional(),
+    maximum_stock: numericString.optional(),
+    active: z.boolean().optional(),
+  }),
+});
+
+export const updateProduct = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => updateSchema.parse(input))
+  .handler(async ({ data, context }): Promise<ProductLookup> => {
+    const p = data.patch;
+    const norm = (v: string | null | undefined) =>
+      v === undefined ? undefined : v === null || v.trim() === "" ? null : v.trim();
+    const num = (v: string | number | undefined) =>
+      v === undefined || v === "" ? undefined : Number(v);
+
+    const patch: Record<string, unknown> = {
+      updated_by: context.userId,
+      updated_at: new Date().toISOString(),
+    };
+    if (p.description !== undefined) patch.description = p.description.trim();
+    if (p.barcode !== undefined) patch.barcode = norm(p.barcode);
+    if (p.internal_code !== undefined) patch.internal_code = norm(p.internal_code);
+    if (p.short_description !== undefined) patch.short_description = norm(p.short_description);
+    if (p.manufacturer !== undefined) patch.manufacturer = norm(p.manufacturer);
+    if (p.unit !== undefined) patch.unit = norm(p.unit);
+    if (p.category_id !== undefined) patch.category_id = p.category_id || null;
+    if (p.default_supplier_id !== undefined)
+      patch.default_supplier_id = p.default_supplier_id || null;
+    if (p.controlled_drug !== undefined) patch.controlled_drug = p.controlled_drug;
+    if (p.requires_batch !== undefined) patch.requires_batch = p.requires_batch;
+    if (p.requires_expiration_date !== undefined)
+      patch.requires_expiration_date = p.requires_expiration_date;
+    if (p.minimum_stock !== undefined) patch.minimum_stock = num(p.minimum_stock) ?? null;
+    if (p.maximum_stock !== undefined) patch.maximum_stock = num(p.maximum_stock) ?? null;
+    if (p.active !== undefined) patch.active = p.active;
+
+    const { data: row, error } = await context.supabase
+      .from("products")
+      .update(patch as never)
+      .eq("id", data.id)
+      .is("deleted_at", null)
+      .select(PRODUCT_COLS)
+      .single();
+    if (error) {
+      if (error.code === "23505") {
+        if (error.message.includes("barcode"))
+          throw new Error("Já existe um produto ativo com este código de barras.");
+        if (error.message.includes("internal_code"))
+          throw new Error("Já existe um produto ativo com este código interno.");
+      }
+      throw new Error(error.message);
+    }
+
+    await context.supabase.from("audit_log").insert({
+      user_id: context.userId,
+      entity: "products",
+      entity_id: data.id,
+      action: "update",
+      after: patch as never,
+    });
+
+    return row as ProductLookup;
   });
 
 export interface RefOption { id: string; name: string }
@@ -118,26 +219,32 @@ export interface RefOption { id: string; name: string }
 export const listMasterRefs = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const [cats, sups, centers, mans] = await Promise.all([
+    const [cats, sups, centers, prods] = await Promise.all([
       context.supabase.from("categories").select("id, name").is("deleted_at", null).eq("active", true).order("name"),
       context.supabase.from("suppliers").select("id, name").is("deleted_at", null).eq("active", true).order("name"),
       context.supabase.from("stock_centers").select("id, name").eq("active", true).order("name"),
-      context.supabase.from("products").select("manufacturer").is("deleted_at", null).not("manufacturer", "is", null),
+      context.supabase.from("products").select("manufacturer, unit").is("deleted_at", null),
     ]);
     if (cats.error) throw new Error(cats.error.message);
     if (sups.error) throw new Error(sups.error.message);
     if (centers.error) throw new Error(centers.error.message);
-    if (mans.error) throw new Error(mans.error.message);
+    if (prods.error) throw new Error(prods.error.message);
+    const rows = (prods.data ?? []) as { manufacturer: string | null; unit: string | null }[];
     const manufacturers = Array.from(
-      new Set(((mans.data ?? []) as { manufacturer: string | null }[])
-        .map((r) => (r.manufacturer ?? "").trim())
-        .filter(Boolean)),
+      new Set(rows.map((r) => (r.manufacturer ?? "").trim()).filter(Boolean)),
+    ).sort((a, b) => a.localeCompare(b));
+    const units = Array.from(
+      new Set([
+        "UN", "CX", "FR", "AMP", "CP", "ML", "MG", "G", "KG", "L",
+        ...rows.map((r) => (r.unit ?? "").trim()).filter(Boolean),
+      ]),
     ).sort((a, b) => a.localeCompare(b));
     return {
       categories: (cats.data ?? []) as RefOption[],
       suppliers: (sups.data ?? []) as RefOption[],
       stockCenters: (centers.data ?? []) as RefOption[],
       manufacturers,
+      units,
     };
   });
 
@@ -156,7 +263,10 @@ export const createCategory = createServerFn({ method: "POST" })
       .from("categories")
       .insert({ name: data.name, hospital_id, active: true, created_by: context.userId, updated_by: context.userId })
       .select("id, name").single();
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (error.code === "23505") throw new Error("Já existe uma categoria com este nome.");
+      throw new Error(error.message);
+    }
     return row as RefOption;
   });
 
@@ -173,7 +283,10 @@ export const createSupplier = createServerFn({ method: "POST" })
       .from("suppliers")
       .insert({ name: data.name, hospital_id, active: true, created_by: context.userId, updated_by: context.userId })
       .select("id, name").single();
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (error.code === "23505") throw new Error("Já existe um fornecedor com este nome.");
+      throw new Error(error.message);
+    }
     return row as RefOption;
   });
 
@@ -220,11 +333,13 @@ export const getProductSummary = createServerFn({ method: "POST" })
 
 export interface RecentEntry {
   id: string;
+  product_id: string;
   occurred_at: string;
   quantity: number;
   batch: string | null;
   barcode: string | null;
   description: string;
+  category_name: string | null;
   user_name: string | null;
 }
 
@@ -233,37 +348,54 @@ export const listRecentEntries = createServerFn({ method: "GET" })
   .handler(async ({ context }): Promise<RecentEntry[]> => {
     const { data, error } = await context.supabase
       .from("movements")
-      .select("id, occurred_at, quantity, batch, user_id, products(barcode, description)")
+      .select(
+        "id, occurred_at, quantity, batch, user_id, product_id, products(barcode, description, category_id)",
+      )
       .eq("movement_type", "initial_entry")
       .order("occurred_at", { ascending: false })
       .limit(10);
     if (error) throw new Error(error.message);
     const rows = (data ?? []) as Array<{
-      id: string; occurred_at: string; quantity: number; batch: string | null; user_id: string | null;
-      products: { barcode: string | null; description: string } | null;
+      id: string; occurred_at: string; quantity: number; batch: string | null;
+      user_id: string | null; product_id: string;
+      products: { barcode: string | null; description: string; category_id: string | null } | null;
     }>;
     const userIds = Array.from(new Set(rows.map((r) => r.user_id).filter((v): v is string => !!v)));
+    const catIds = Array.from(
+      new Set(rows.map((r) => r.products?.category_id).filter((v): v is string => !!v)),
+    );
     const names = new Map<string, string>();
-    if (userIds.length) {
-      const { data: profs } = await context.supabase
-        .from("profiles").select("id, full_name").in("id", userIds);
-      ((profs ?? []) as { id: string; full_name: string | null }[]).forEach((p) => {
-        if (p.full_name) names.set(p.id, p.full_name);
-      });
-    }
+    const cats = new Map<string, string>();
+    await Promise.all([
+      userIds.length
+        ? context.supabase.from("profiles").select("id, full_name").in("id", userIds).then((r) => {
+            ((r.data ?? []) as { id: string; full_name: string | null }[]).forEach((p) => {
+              if (p.full_name) names.set(p.id, p.full_name);
+            });
+          })
+        : Promise.resolve(),
+      catIds.length
+        ? context.supabase.from("categories").select("id, name").in("id", catIds).then((r) => {
+            ((r.data ?? []) as { id: string; name: string }[]).forEach((c) => cats.set(c.id, c.name));
+          })
+        : Promise.resolve(),
+    ]);
     return rows.map((r) => ({
       id: r.id,
+      product_id: r.product_id,
       occurred_at: r.occurred_at,
       quantity: Number(r.quantity),
       batch: r.batch,
       barcode: r.products?.barcode ?? null,
       description: r.products?.description ?? "—",
+      category_name: r.products?.category_id ? cats.get(r.products.category_id) ?? null : null,
       user_name: r.user_id ? names.get(r.user_id) ?? null : null,
     }));
   });
 
 export interface ImplementationStats {
   today: number;
+  week: number;
   total: number;
   goal: number;
 }
@@ -271,18 +403,34 @@ export interface ImplementationStats {
 export const getImplementationStats = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<ImplementationStats> => {
-    const startOfDay = new Date();
+    const now = new Date();
+    const startOfDay = new Date(now);
     startOfDay.setHours(0, 0, 0, 0);
-    const [{ count: today, error: te }, { count: total, error: toe }] = await Promise.all([
+    const startOfWeek = new Date(startOfDay);
+    // Monday-based week
+    const day = startOfWeek.getDay(); // 0=Sun
+    const diff = (day + 6) % 7;
+    startOfWeek.setDate(startOfWeek.getDate() - diff);
+    const [tRes, wRes, totRes] = await Promise.all([
       context.supabase
         .from("products").select("id", { count: "exact", head: true })
         .is("deleted_at", null)
         .gte("created_at", startOfDay.toISOString()),
       context.supabase
         .from("products").select("id", { count: "exact", head: true })
+        .is("deleted_at", null)
+        .gte("created_at", startOfWeek.toISOString()),
+      context.supabase
+        .from("products").select("id", { count: "exact", head: true })
         .is("deleted_at", null),
     ]);
-    if (te) throw new Error(te.message);
-    if (toe) throw new Error(toe.message);
-    return { today: today ?? 0, total: total ?? 0, goal: 1500 };
+    if (tRes.error) throw new Error(tRes.error.message);
+    if (wRes.error) throw new Error(wRes.error.message);
+    if (totRes.error) throw new Error(totRes.error.message);
+    return {
+      today: tRes.count ?? 0,
+      week: wRes.count ?? 0,
+      total: totRes.count ?? 0,
+      goal: 1500,
+    };
   });
