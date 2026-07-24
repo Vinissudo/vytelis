@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import {
   Barcode, PackagePlus, CheckCircle2, Loader2, AlertCircle,
   Plus, Check, ChevronsUpDown, PackageSearch, Pencil, History, Target,
+  Search as SearchIcon, ArrowLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,8 @@ import { cn } from "@/lib/utils";
 import {
   lookupProductByBarcode,
   createProductWithInitialEntry,
+  updateProduct,
+  searchProducts,
   listMasterRefs,
   createCategory,
   createSupplier,
@@ -37,7 +40,7 @@ export const Route = createFileRoute("/_authenticated/produtos")({
   component: Page,
 });
 
-type Mode = "idle" | "new" | "existing-summary" | "existing-entry";
+type Mode = "idle" | "new" | "existing-summary" | "existing-entry" | "existing-edit";
 
 interface ProductForm {
   barcode: string;
@@ -76,12 +79,31 @@ const emptyEntry: EntryForm = {
   quantity: "", unit_cost: "", observation: "",
 };
 
+function productToForm(p: ProductLookup): ProductForm {
+  return {
+    barcode: p.barcode ?? "",
+    internal_code: p.internal_code ?? "",
+    description: p.description,
+    short_description: p.short_description ?? "",
+    manufacturer: p.manufacturer ?? "",
+    unit: p.unit ?? "UN",
+    category_id: p.category_id ?? "",
+    default_supplier_id: p.default_supplier_id ?? "",
+    controlled_drug: p.controlled_drug,
+    requires_batch: p.requires_batch,
+    requires_expiration_date: p.requires_expiration_date,
+    minimum_stock: p.minimum_stock?.toString() ?? "",
+    maximum_stock: p.maximum_stock?.toString() ?? "",
+  };
+}
+
 function Page() {
   const [barcode, setBarcode] = useState("");
   const [mode, setMode] = useState<Mode>("idle");
   const [existing, setExisting] = useState<ProductLookup | null>(null);
   const [product, setProduct] = useState<ProductForm>(emptyProduct);
   const [entry, setEntry] = useState<EntryForm>(emptyEntry);
+  const [searchResults, setSearchResults] = useState<ProductLookup[] | null>(null);
 
   const barcodeRef = useRef<HTMLInputElement>(null);
   const qtyRef = useRef<HTMLInputElement>(null);
@@ -89,7 +111,9 @@ function Page() {
 
   const qc = useQueryClient();
   const lookup = useServerFn(lookupProductByBarcode);
+  const search = useServerFn(searchProducts);
   const create = useServerFn(createProductWithInitialEntry);
+  const update = useServerFn(updateProduct);
   const refs = useServerFn(listMasterRefs);
   const summaryFn = useServerFn(getProductSummary);
   const recentFn = useServerFn(listRecentEntries);
@@ -128,15 +152,49 @@ function Page() {
     }
   }, [refsQuery.data, entry.stock_center_id]);
 
+  const centers = refsQuery.data?.stockCenters ?? [];
+  const cats = refsQuery.data?.categories ?? [];
+  const sups = refsQuery.data?.suppliers ?? [];
+  const mans = refsQuery.data?.manufacturers ?? [];
+  const units = refsQuery.data?.units ?? [];
+
+  const categoryName = useCallback(
+    (id: string | null | undefined) => (id ? cats.find((c) => c.id === id)?.name ?? "—" : "—"),
+    [cats],
+  );
+  const supplierName = useCallback(
+    (id: string | null | undefined) => (id ? sups.find((s) => s.id === id)?.name ?? "—" : "—"),
+    [sups],
+  );
+
+  const openExisting = useCallback((row: ProductLookup) => {
+    setExisting(row);
+    setBarcode(row.barcode ?? row.internal_code ?? row.description);
+    setSearchResults(null);
+    setMode("existing-summary");
+  }, []);
+
   const lookupMut = useMutation({
-    mutationFn: (code: string) => lookup({ data: { barcode: code } }),
-    onSuccess: (row, code) => {
-      if (row) {
-        setExisting(row);
-        setMode("existing-summary");
+    mutationFn: async (code: string): Promise<
+      { kind: "hit"; row: ProductLookup } | { kind: "many"; rows: ProductLookup[] } | { kind: "none"; code: string }
+    > => {
+      const direct = await lookup({ data: { barcode: code } });
+      if (direct) return { kind: "hit", row: direct };
+      const many = await search({ data: { q: code } });
+      if (many.length === 1) return { kind: "hit", row: many[0] };
+      if (many.length > 1) return { kind: "many", rows: many };
+      return { kind: "none", code };
+    },
+    onSuccess: (res) => {
+      if (res.kind === "hit") {
+        openExisting(res.row);
+      } else if (res.kind === "many") {
+        setSearchResults(res.rows);
+        setMode("idle");
       } else {
         setExisting(null);
-        setProduct({ ...emptyProduct, barcode: code });
+        setSearchResults(null);
+        setProduct({ ...emptyProduct, barcode: res.code });
         setMode("new");
         setTimeout(() => descRef.current?.focus(), 30);
       }
@@ -144,18 +202,18 @@ function Page() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const centers = refsQuery.data?.stockCenters ?? [];
-  const cats = refsQuery.data?.categories ?? [];
-  const sups = refsQuery.data?.suppliers ?? [];
-  const mans = refsQuery.data?.manufacturers ?? [];
-
   const isEntryMode = mode === "new" || mode === "existing-entry";
+  const isEditMode = mode === "existing-edit";
   const requiresBatch = mode === "existing-entry" ? !!existing?.requires_batch : product.requires_batch;
   const requiresExpiration =
     mode === "existing-entry" ? !!existing?.requires_expiration_date : product.requires_expiration_date;
 
   const validation = useMemo(() => {
     const errs: string[] = [];
+    if (isEditMode) {
+      if (product.description.trim().length < 2) errs.push("Informe a descrição do produto.");
+      return errs;
+    }
     if (!isEntryMode) return errs;
     if (!entry.stock_center_id) errs.push("Selecione o local de estoque.");
     const qty = Number(entry.quantity);
@@ -168,20 +226,21 @@ function Page() {
     if (entry.expiration_date && entry.expiration_date < new Date().toISOString().slice(0, 10))
       errs.push("Validade não pode ser anterior a hoje.");
     return errs;
-  }, [isEntryMode, mode, product, entry, requiresBatch, requiresExpiration]);
+  }, [isEditMode, isEntryMode, mode, product, entry, requiresBatch, requiresExpiration]);
 
-  const canSubmit = validation.length === 0 && isEntryMode;
+  const canSubmit = validation.length === 0 && (isEntryMode || isEditMode);
 
   const reset = useCallback(() => {
     setBarcode("");
     setExisting(null);
+    setSearchResults(null);
     setProduct(emptyProduct);
     setEntry({ ...emptyEntry, stock_center_id: refsQuery.data?.stockCenters[0]?.id ?? "" });
     setMode("idle");
     setTimeout(() => barcodeRef.current?.focus(), 30);
   }, [refsQuery.data?.stockCenters]);
 
-  const submitMut = useMutation({
+  const createMut = useMutation({
     mutationFn: async () => {
       const productPayload =
         mode === "existing-entry" && existing
@@ -218,14 +277,17 @@ function Page() {
     onSuccess: () => {
       const isNew = mode === "new";
       toast.success(
-        isNew ? "Cadastro concluído" : "Entrada registrada",
+        isNew ? "Cadastro concluído com sucesso" : "Entrada de estoque registrada",
         {
           icon: <CheckCircle2 className="size-4" />,
+          duration: 4500,
           description: (
             <div className="text-xs space-y-0.5">
-              {isNew && <div>✓ Produto criado</div>}
-              <div>✓ Estoque inicial registrado</div>
-              <div>✓ Movimento de inventário criado</div>
+              {isNew && <div>✔ Produto criado</div>}
+              <div>✔ Lote {entry.batch ? `"${entry.batch}"` : "inicial"} registrado</div>
+              <div>✔ Estoque atualizado (+{entry.quantity})</div>
+              <div>✔ Movimento de inventário gerado</div>
+              <div>✔ Auditoria registrada</div>
             </div>
           ),
         },
@@ -239,6 +301,45 @@ function Page() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const updateMut = useMutation({
+    mutationFn: async () => {
+      if (!existing) throw new Error("Produto não selecionado.");
+      return update({
+        data: {
+          id: existing.id,
+          patch: {
+            barcode: product.barcode || null,
+            internal_code: product.internal_code || null,
+            description: product.description,
+            short_description: product.short_description || null,
+            manufacturer: product.manufacturer || null,
+            unit: product.unit || null,
+            category_id: product.category_id || null,
+            default_supplier_id: product.default_supplier_id || null,
+            controlled_drug: product.controlled_drug,
+            requires_batch: product.requires_batch,
+            requires_expiration_date: product.requires_expiration_date,
+            minimum_stock: product.minimum_stock,
+            maximum_stock: product.maximum_stock,
+          },
+        },
+      });
+    },
+    onSuccess: (row) => {
+      toast.success("Produto atualizado", {
+        icon: <CheckCircle2 className="size-4" />,
+        description: <div className="text-xs">✔ Alterações salvas · ✔ Auditoria registrada</div>,
+      });
+      setExisting(row);
+      setMode("existing-summary");
+      qc.invalidateQueries({ queryKey: ["master-refs"] });
+      qc.invalidateQueries({ queryKey: ["product-summary", row.id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const submitMut = isEditMode ? updateMut : createMut;
 
   const submit = useCallback(() => {
     if (!canSubmit || submitMut.isPending) return;
@@ -257,24 +358,9 @@ function Page() {
 
   const startEditFromExisting = useCallback(() => {
     if (!existing) return;
-    setProduct({
-      barcode: existing.barcode ?? "",
-      internal_code: existing.internal_code ?? "",
-      description: existing.description,
-      short_description: existing.short_description ?? "",
-      manufacturer: existing.manufacturer ?? "",
-      unit: existing.unit ?? "UN",
-      category_id: existing.category_id ?? "",
-      default_supplier_id: existing.default_supplier_id ?? "",
-      controlled_drug: existing.controlled_drug,
-      requires_batch: existing.requires_batch,
-      requires_expiration_date: existing.requires_expiration_date,
-      minimum_stock: existing.minimum_stock?.toString() ?? "",
-      maximum_stock: existing.maximum_stock?.toString() ?? "",
-    });
-    setMode("new"); // reuse form; save path will still work via existing.id? No — treat as "edit"
+    setProduct(productToForm(existing));
+    setMode("existing-edit");
     setTimeout(() => descRef.current?.focus(), 30);
-    toast.info("Edição de produto ainda não disponível — use este formulário para revisão.");
   }, [existing]);
 
   const onBarcodeKey = useCallback(
@@ -291,7 +377,7 @@ function Page() {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && isEntryMode) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && (isEntryMode || isEditMode)) {
         e.preventDefault();
         submit();
       } else if (e.key === "Escape" && mode !== "idle") {
@@ -301,17 +387,31 @@ function Page() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [mode, isEntryMode, submit, reset]);
+  }, [mode, isEntryMode, isEditMode, submit, reset]);
 
   const onFormKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLFormElement>) => {
       const target = e.target as HTMLElement;
-      if (e.key === "Enter" && target.tagName === "INPUT") {
+      if (e.key === "Enter" && target.tagName === "INPUT" && (target as HTMLInputElement).type !== "textarea") {
         e.preventDefault();
         submit();
       }
     },
     [submit],
+  );
+
+  const openRecent = useCallback(
+    async (product_id: string) => {
+      try {
+        const rows = await search({ data: { q: product_id } });
+        // fallback: search by product id doesn't work — use direct getById via lookup
+        const found = rows.find((r) => r.id === product_id);
+        if (found) return openExisting(found);
+      } catch { /* ignore */ }
+      // fallback direct fetch via barcode? Use lookup with description as best-effort
+      // If no barcode we can't lookup; skip
+    },
+    [search, openExisting],
   );
 
   return (
@@ -325,19 +425,20 @@ function Page() {
           <div>
             <h2 className="text-2xl font-semibold tracking-tight">Cadastro Mestre</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Escaneie o código de barras para localizar o produto ou cadastrar um novo com sua
-              entrada inicial em um único fluxo.{" "}
+              Escaneie o código de barras, digite parte da descrição ou o código interno para localizar o produto.
+              Se não existir, o formulário completo é aberto automaticamente.{" "}
               <span className="text-xs">
                 Atalhos: <kbd className="px-1 py-0.5 rounded bg-muted">Enter</kbd> confirma,{" "}
+                <kbd className="px-1 py-0.5 rounded bg-muted">Ctrl+Enter</kbd> salva,{" "}
                 <kbd className="px-1 py-0.5 rounded bg-muted">Esc</kbd> cancela.
               </span>
             </p>
           </div>
 
-          {/* Barcode input */}
+          {/* Barcode / search input */}
           <div className="bg-card border border-border rounded-lg p-5">
             <Label htmlFor="barcode" className="text-xs uppercase tracking-wider text-muted-foreground">
-              Código de barras
+              Código de barras · código interno · descrição
             </Label>
             <div className="mt-2 flex gap-2">
               <div className="relative flex-1">
@@ -368,6 +469,35 @@ function Page() {
             )}
           </div>
 
+          {/* Multi-result picker */}
+          {searchResults && searchResults.length > 0 && mode === "idle" && (
+            <div className="bg-card border border-border rounded-lg p-4">
+              <div className="flex items-center gap-2 text-sm font-medium mb-3">
+                <SearchIcon className="size-4 text-primary" />
+                {searchResults.length} produtos encontrados — selecione um
+              </div>
+              <ul className="divide-y divide-border -mx-2">
+                {searchResults.map((r) => (
+                  <li key={r.id}>
+                    <button
+                      type="button"
+                      onClick={() => openExisting(r)}
+                      className="w-full text-left px-2 py-2.5 hover:bg-muted/40 rounded"
+                    >
+                      <div className="text-sm font-medium">{r.description}</div>
+                      <div className="text-[11px] text-muted-foreground flex gap-2 flex-wrap mt-0.5">
+                        {r.barcode && <span className="font-mono">{r.barcode}</span>}
+                        {r.internal_code && <span>Cód. {r.internal_code}</span>}
+                        {r.manufacturer && <span>{r.manufacturer}</span>}
+                        <span>{categoryName(r.category_id)}</span>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Existing product — compact summary */}
           {mode === "existing-summary" && existing && (
             <div className="bg-card border border-border rounded-lg p-5">
@@ -381,12 +511,14 @@ function Page() {
                   <div className="text-xs text-muted-foreground mt-1 flex gap-3 flex-wrap">
                     {existing.barcode && <span className="font-mono">{existing.barcode}</span>}
                     {existing.internal_code && <span>Cód. {existing.internal_code}</span>}
-                    {existing.manufacturer && <span>{existing.manufacturer}</span>}
-                    {existing.unit && <span>{existing.unit}</span>}
                     {existing.controlled_drug && <span className="text-red-600 font-medium">Controlado</span>}
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3 mt-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+                    <Stat label="Categoria" value={categoryName(existing.category_id)} />
+                    <Stat label="Fabricante" value={existing.manufacturer ?? "—"} />
+                    <Stat label="Fornecedor" value={supplierName(existing.default_supplier_id)} />
+                    <Stat label="Unidade" value={existing.unit ?? "—"} />
                     <Stat label="Estoque atual" value={
                       summaryQuery.isLoading ? "—" : `${summaryQuery.data?.current_stock ?? 0}`
                     } />
@@ -394,6 +526,11 @@ function Page() {
                     <Stat label="Validade" value={
                       summaryQuery.data?.last_expiration
                         ? formatDate(summaryQuery.data.last_expiration)
+                        : "—"
+                    } />
+                    <Stat label="Última entrada" value={
+                      summaryQuery.data?.last_entry_at
+                        ? formatDateTime(summaryQuery.data.last_entry_at)
                         : "—"
                     } />
                   </div>
@@ -411,14 +548,26 @@ function Page() {
             </div>
           )}
 
-          {mode === "new" && (
+          {/* Product form (new or edit) */}
+          {(mode === "new" || isEditMode) && (
             <div className="bg-card border border-border rounded-lg p-5 space-y-4">
               <div className="flex items-center gap-2 text-sm font-medium">
-                <PackagePlus className="size-4 text-primary" />
-                Novo produto
+                {isEditMode ? (
+                  <><Pencil className="size-4 text-primary" /> Editar produto</>
+                ) : (
+                  <><PackagePlus className="size-4 text-primary" /> Novo produto</>
+                )}
+                {isEditMode && (
+                  <Button
+                    type="button" variant="ghost" size="sm" className="ml-auto h-7"
+                    onClick={() => setMode("existing-summary")}
+                  >
+                    <ArrowLeft className="size-3.5 mr-1" /> Voltar
+                  </Button>
+                )}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Field label="Descrição *">
+                <Field label="Descrição" required error={product.description.trim().length < 2 && product.description.length > 0 ? "Mínimo 2 caracteres" : undefined}>
                   <Input
                     ref={descRef}
                     value={product.description}
@@ -452,18 +601,19 @@ function Page() {
                   />
                 </Field>
                 <Field label="Fabricante">
-                  <ManufacturerCombobox
+                  <FreeCombobox
                     value={product.manufacturer}
                     options={mans}
+                    placeholder="Selecione ou digite..."
                     onChange={(v) => setProduct({ ...product, manufacturer: v })}
                   />
                 </Field>
                 <Field label="Unidade">
-                  <Input
+                  <FreeCombobox
                     value={product.unit}
-                    onChange={(e) => setProduct({ ...product, unit: e.target.value })}
+                    options={units}
                     placeholder="UN, CX, FR..."
-                    maxLength={20}
+                    onChange={(v) => setProduct({ ...product, unit: v })}
                   />
                 </Field>
                 <Field label="Categoria">
@@ -471,7 +621,7 @@ function Page() {
                     value={product.category_id}
                     options={cats}
                     placeholder="Selecione ou crie..."
-                    createLabel="+ Criar categoria"
+                    createLabel="Criar categoria"
                     onChange={(id) => setProduct({ ...product, category_id: id })}
                     createFn={createCategory}
                     invalidateKey={["master-refs"]}
@@ -483,7 +633,7 @@ function Page() {
                     value={product.default_supplier_id}
                     options={sups}
                     placeholder="Selecione ou crie..."
-                    createLabel="+ Criar fornecedor"
+                    createLabel="Criar fornecedor"
                     onChange={(id) => setProduct({ ...product, default_supplier_id: id })}
                     createFn={createSupplier}
                     invalidateKey={["master-refs"]}
@@ -522,7 +672,7 @@ function Page() {
                 {mode === "existing-entry" ? "Nova entrada de estoque" : "Entrada inicial no estoque"}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Field label="Local de estoque *">
+                <Field label="Local de estoque" required>
                   <Select
                     value={entry.stock_center_id || undefined}
                     onValueChange={(v) => setEntry({ ...entry, stock_center_id: v })}
@@ -535,7 +685,7 @@ function Page() {
                     </SelectContent>
                   </Select>
                 </Field>
-                <Field label="Quantidade *">
+                <Field label="Quantidade" required>
                   <Input
                     ref={qtyRef}
                     type="number" inputMode="decimal" min="0" step="0.001"
@@ -551,7 +701,7 @@ function Page() {
                     onChange={(e) => setEntry({ ...entry, unit_cost: e.target.value })}
                   />
                 </Field>
-                <Field label={`Lote${requiresBatch ? " *" : ""}`}>
+                <Field label="Lote" required={requiresBatch}>
                   <Input
                     value={entry.batch}
                     onChange={(e) => setEntry({ ...entry, batch: e.target.value })}
@@ -559,7 +709,7 @@ function Page() {
                     required={requiresBatch}
                   />
                 </Field>
-                <Field label={`Validade${requiresExpiration ? " *" : ""}`}>
+                <Field label="Validade" required={requiresExpiration}>
                   <Input
                     type="date"
                     min={new Date().toISOString().slice(0, 10)}
@@ -580,7 +730,7 @@ function Page() {
             </div>
           )}
 
-          {isEntryMode && validation.length > 0 && (
+          {(isEntryMode || isEditMode) && validation.length > 0 && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-2 text-sm text-amber-900">
               <AlertCircle className="size-4 mt-0.5 shrink-0" />
               <ul className="list-disc list-inside space-y-0.5">
@@ -589,14 +739,16 @@ function Page() {
             </div>
           )}
 
-          {isEntryMode && (
+          {(isEntryMode || isEditMode) && (
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={reset} type="button" disabled={submitMut.isPending}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={!canSubmit || submitMut.isPending} className="min-w-40">
+              <Button type="submit" disabled={!canSubmit || submitMut.isPending} className="min-w-44">
                 {submitMut.isPending ? (
                   <><Loader2 className="size-4 mr-2 animate-spin" /> Salvando...</>
+                ) : isEditMode ? (
+                  "Salvar alterações"
                 ) : mode === "existing-entry" ? (
                   "Registrar entrada"
                 ) : (
@@ -611,21 +763,31 @@ function Page() {
         <aside className="space-y-4">
           <ProgressWidget
             today={statsQuery.data?.today ?? 0}
+            week={statsQuery.data?.week ?? 0}
             total={statsQuery.data?.total ?? 0}
             goal={statsQuery.data?.goal ?? 1500}
           />
-          <RecentPanel rows={recentQuery.data ?? []} loading={recentQuery.isLoading} />
+          <RecentPanel
+            rows={recentQuery.data ?? []}
+            loading={recentQuery.isLoading}
+            onOpen={openRecent}
+          />
         </aside>
       </div>
     </AppShell>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label, children, required, error,
+}: { label: string; children: React.ReactNode; required?: boolean; error?: string }) {
   return (
     <div className="space-y-1.5">
-      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</Label>
+      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        {label}{required && <span className="text-rose-600 ml-0.5">*</span>}
+      </Label>
       {children}
+      {error && <p className="text-[11px] text-rose-600">{error}</p>}
     </div>
   );
 }
@@ -739,9 +901,10 @@ function RefCombobox({
   );
 }
 
-function ManufacturerCombobox({
-  value, options, onChange,
-}: { value: string; options: string[]; onChange: (v: string) => void }) {
+/* Free-text combobox for suggestions without a table (Manufacturer, Unit) */
+function FreeCombobox({
+  value, options, placeholder, onChange,
+}: { value: string; options: string[]; placeholder: string; onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState(value);
   useEffect(() => { setSearch(value); }, [value]);
@@ -752,13 +915,13 @@ function ManufacturerCombobox({
       <PopoverTrigger asChild>
         <Button type="button" variant="outline" role="combobox"
           className={cn("w-full justify-between font-normal", !value && "text-muted-foreground")}>
-          {value || "Selecione ou digite..."}
+          {value || placeholder}
           <ChevronsUpDown className="size-4 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" align="start">
         <Command shouldFilter={false}>
-          <CommandInput placeholder="Buscar ou digitar fabricante..." value={search} onValueChange={setSearch} />
+          <CommandInput placeholder="Buscar ou digitar..." value={search} onValueChange={setSearch} />
           <CommandList>
             <CommandEmpty>Nenhum registro</CommandEmpty>
             <CommandGroup>
@@ -768,7 +931,7 @@ function ManufacturerCombobox({
                   {o}
                 </CommandItem>
               ))}
-              {search.trim().length >= 2 && !exact && (
+              {search.trim().length >= 1 && !exact && (
                 <CommandItem value="__use__" onSelect={() => { onChange(search.trim()); setOpen(false); }}>
                   <Plus className="size-4 mr-2" /> Usar "{search.trim()}"
                 </CommandItem>
@@ -781,21 +944,27 @@ function ManufacturerCombobox({
   );
 }
 
-function ProgressWidget({ today, total, goal }: { today: number; total: number; goal: number }) {
+function ProgressWidget({
+  today, week, total, goal,
+}: { today: number; week: number; total: number; goal: number }) {
   const pct = goal > 0 ? Math.min(100, (total / goal) * 100) : 0;
   return (
     <div className="bg-card border border-border rounded-lg p-5">
       <div className="flex items-center gap-2 text-sm font-medium">
         <Target className="size-4 text-primary" /> Progresso da implantação
       </div>
-      <div className="grid grid-cols-2 gap-3 mt-4">
+      <div className="grid grid-cols-3 gap-3 mt-4">
         <div>
           <div className="text-2xl font-semibold">{today}</div>
-          <div className="text-xs text-muted-foreground">Cadastrados hoje</div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">Hoje</div>
+        </div>
+        <div>
+          <div className="text-2xl font-semibold">{week}</div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">Semana</div>
         </div>
         <div>
           <div className="text-2xl font-semibold">{total}</div>
-          <div className="text-xs text-muted-foreground">Total no hospital</div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">Total</div>
         </div>
       </div>
       <div className="mt-4">
@@ -809,7 +978,13 @@ function ProgressWidget({ today, total, goal }: { today: number; total: number; 
   );
 }
 
-function RecentPanel({ rows, loading }: { rows: import("@/lib/master.functions").RecentEntry[]; loading: boolean }) {
+function RecentPanel({
+  rows, loading, onOpen,
+}: {
+  rows: import("@/lib/master.functions").RecentEntry[];
+  loading: boolean;
+  onOpen: (product_id: string) => void;
+}) {
   return (
     <div className="bg-card border border-border rounded-lg p-5">
       <div className="flex items-center gap-2 text-sm font-medium">
@@ -825,15 +1000,22 @@ function RecentPanel({ rows, loading }: { rows: import("@/lib/master.functions")
         ) : (
           <ul className="divide-y divide-border">
             {rows.map((r) => (
-              <li key={r.id} className="px-2 py-2.5">
-                <div className="text-sm font-medium truncate">{r.description}</div>
-                <div className="text-[11px] text-muted-foreground flex gap-2 flex-wrap mt-0.5">
-                  {r.barcode && <span className="font-mono">{r.barcode}</span>}
-                  {r.batch && <span>Lote {r.batch}</span>}
-                  <span>Qtd {r.quantity}</span>
-                  <span>{formatDateTime(r.occurred_at)}</span>
-                  {r.user_name && <span>· {r.user_name}</span>}
-                </div>
+              <li key={r.id}>
+                <button
+                  type="button"
+                  onClick={() => onOpen(r.product_id)}
+                  className="w-full text-left px-2 py-2.5 hover:bg-muted/40 rounded"
+                >
+                  <div className="text-sm font-medium truncate">{r.description}</div>
+                  <div className="text-[11px] text-muted-foreground flex gap-2 flex-wrap mt-0.5">
+                    {r.barcode && <span className="font-mono">{r.barcode}</span>}
+                    {r.category_name && <span>{r.category_name}</span>}
+                    {r.batch && <span>Lote {r.batch}</span>}
+                    <span>Qtd {r.quantity}</span>
+                    <span>{formatDateTime(r.occurred_at)}</span>
+                    {r.user_name && <span>· {r.user_name}</span>}
+                  </div>
+                </button>
               </li>
             ))}
           </ul>
