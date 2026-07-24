@@ -188,7 +188,7 @@ export const updateProduct = createServerFn({ method: "POST" })
 
     const { data: row, error } = await context.supabase
       .from("products")
-      .update(patch)
+      .update(patch as never)
       .eq("id", data.id)
       .is("deleted_at", null)
       .select(PRODUCT_COLS)
