@@ -285,7 +285,7 @@ export const registerMovement = createServerFn({ method: "POST" })
       const key = Object.keys(RPC_ERROR_MAP).find((k) => msg.includes(k));
       throw new Error(key ? RPC_ERROR_MAP[key] : msg);
     }
-    return res as RegisterMovementResult;
+    return res as unknown as RegisterMovementResult;
   });
 
 // ---------- Recent movements ----------
