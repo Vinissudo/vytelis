@@ -150,57 +150,69 @@ export type Database = {
         Row: {
           batch: string | null
           browser: string | null
+          client_datetime: string | null
           created_at: string
           device: string | null
           expiration_date: string | null
           hospital_id: string
           id: string
           ip_address: unknown
+          movement_reason: string | null
           movement_type: Database["public"]["Enums"]["movement_type"]
           observation: string | null
           occurred_at: string
           product_id: string
           quantity: number
+          stock_center_dest_id: string | null
           stock_center_id: string
           stock_item_id: string | null
+          transfer_group_id: string | null
           unit_cost: number | null
           user_id: string | null
         }
         Insert: {
           batch?: string | null
           browser?: string | null
+          client_datetime?: string | null
           created_at?: string
           device?: string | null
           expiration_date?: string | null
           hospital_id: string
           id?: string
           ip_address?: unknown
+          movement_reason?: string | null
           movement_type: Database["public"]["Enums"]["movement_type"]
           observation?: string | null
           occurred_at?: string
           product_id: string
           quantity: number
+          stock_center_dest_id?: string | null
           stock_center_id: string
           stock_item_id?: string | null
+          transfer_group_id?: string | null
           unit_cost?: number | null
           user_id?: string | null
         }
         Update: {
           batch?: string | null
           browser?: string | null
+          client_datetime?: string | null
           created_at?: string
           device?: string | null
           expiration_date?: string | null
           hospital_id?: string
           id?: string
           ip_address?: unknown
+          movement_reason?: string | null
           movement_type?: Database["public"]["Enums"]["movement_type"]
           observation?: string | null
           occurred_at?: string
           product_id?: string
           quantity?: number
+          stock_center_dest_id?: string | null
           stock_center_id?: string
           stock_item_id?: string | null
+          transfer_group_id?: string | null
           unit_cost?: number | null
           user_id?: string | null
         }
@@ -217,6 +229,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movements_stock_center_dest_id_fkey"
+            columns: ["stock_center_dest_id"]
+            isOneToOne: false
+            referencedRelation: "stock_centers"
             referencedColumns: ["id"]
           },
           {
@@ -238,6 +257,7 @@ export type Database = {
       products: {
         Row: {
           active: boolean
+          average_daily_consumption: number | null
           barcode: string | null
           category_id: string | null
           controlled_drug: boolean
@@ -250,6 +270,9 @@ export type Database = {
           hospital_id: string
           id: string
           internal_code: string | null
+          last_purchase_at: string | null
+          last_purchase_price: number | null
+          lead_time_days: number | null
           manufacturer: string | null
           maximum_stock: number | null
           minimum_stock: number | null
@@ -262,6 +285,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          average_daily_consumption?: number | null
           barcode?: string | null
           category_id?: string | null
           controlled_drug?: boolean
@@ -274,6 +298,9 @@ export type Database = {
           hospital_id: string
           id?: string
           internal_code?: string | null
+          last_purchase_at?: string | null
+          last_purchase_price?: number | null
+          lead_time_days?: number | null
           manufacturer?: string | null
           maximum_stock?: number | null
           minimum_stock?: number | null
@@ -286,6 +313,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          average_daily_consumption?: number | null
           barcode?: string | null
           category_id?: string | null
           controlled_drug?: boolean
@@ -298,6 +326,9 @@ export type Database = {
           hospital_id?: string
           id?: string
           internal_code?: string | null
+          last_purchase_at?: string | null
+          last_purchase_price?: number | null
+          lead_time_days?: number | null
           manufacturer?: string | null
           maximum_stock?: number | null
           minimum_stock?: number | null
@@ -521,6 +552,7 @@ export type Database = {
       suppliers: {
         Row: {
           active: boolean
+          avg_delivery_days: number | null
           cnpj: string | null
           contact_email: string | null
           contact_name: string | null
@@ -529,14 +561,20 @@ export type Database = {
           created_by: string | null
           deleted_at: string | null
           deleted_by: string | null
+          delivery_reliability: number | null
+          free_shipping_threshold: number | null
           hospital_id: string
           id: string
+          minimum_order_value: number | null
           name: string
+          payment_terms: string | null
+          rating: number | null
           updated_at: string
           updated_by: string | null
         }
         Insert: {
           active?: boolean
+          avg_delivery_days?: number | null
           cnpj?: string | null
           contact_email?: string | null
           contact_name?: string | null
@@ -545,14 +583,20 @@ export type Database = {
           created_by?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
+          delivery_reliability?: number | null
+          free_shipping_threshold?: number | null
           hospital_id: string
           id?: string
+          minimum_order_value?: number | null
           name: string
+          payment_terms?: string | null
+          rating?: number | null
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
           active?: boolean
+          avg_delivery_days?: number | null
           cnpj?: string | null
           contact_email?: string | null
           contact_name?: string | null
@@ -561,9 +605,14 @@ export type Database = {
           created_by?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
+          delivery_reliability?: number | null
+          free_shipping_threshold?: number | null
           hospital_id?: string
           id?: string
+          minimum_order_value?: number | null
           name?: string
+          payment_terms?: string | null
+          rating?: number | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -644,6 +693,58 @@ export type Database = {
           },
         ]
       }
+      v_stock_alerts: {
+        Row: {
+          alert_kind: string | null
+          description: string | null
+          hospital_id: string | null
+          metric: number | null
+          product_id: string | null
+          ref_date: string | null
+          stock_center_id: string | null
+        }
+        Relationships: []
+      }
+      v_stock_health: {
+        Row: {
+          average_daily_consumption: number | null
+          coverage_days: number | null
+          current_stock: number | null
+          description: string | null
+          hospital_id: string | null
+          last_movement_at: string | null
+          last_stock_update: string | null
+          lead_time_days: number | null
+          maximum_stock: number | null
+          minimum_stock: number | null
+          product_id: string | null
+          stock_center_id: string | null
+          stock_value: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_items_hospital_id_fkey"
+            columns: ["hospital_id"]
+            isOneToOne: false
+            referencedRelation: "hospitals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_items_stock_center_id_fkey"
+            columns: ["stock_center_id"]
+            isOneToOne: false
+            referencedRelation: "stock_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       can_operate_stock: { Args: { _user_id: string }; Returns: boolean }
@@ -660,6 +761,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin_or_manager: { Args: { _user_id: string }; Returns: boolean }
+      register_movement: { Args: { p: Json }; Returns: Json }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
     }
@@ -679,6 +781,11 @@ export type Database = {
         | "purchase"
         | "return"
         | "consumption"
+        | "purchase_entry"
+        | "positive_adjustment"
+        | "negative_adjustment"
+        | "loss"
+        | "expired"
       stock_center_type:
         | "central_warehouse"
         | "clinical_pharmacy"
@@ -835,6 +942,11 @@ export const Constants = {
         "purchase",
         "return",
         "consumption",
+        "purchase_entry",
+        "positive_adjustment",
+        "negative_adjustment",
+        "loss",
+        "expired",
       ],
       stock_center_type: [
         "central_warehouse",
