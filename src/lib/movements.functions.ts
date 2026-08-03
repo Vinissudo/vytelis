@@ -1,6 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { Database } from "@/integrations/supabase/types";
+import type { InventorySnapshot } from "@/engines/types";
 
 // ---------- Movement types ----------
 export const MOVEMENT_TYPES = [
@@ -35,35 +38,9 @@ export const OUTBOUND_TYPES: MovementType[] = [
   "consumption", "loss", "expired", "negative_adjustment",
 ];
 
-// ---------- Product lookup ----------
-export interface ProductLookupRow {
-  id: string;
-  barcode: string | null;
-  internal_code: string | null;
-  description: string;
-  short_description: string | null;
-  manufacturer: string | null;
-  unit: string | null;
-  category_id: string | null;
-  category_name: string | null;
-  default_supplier_id: string | null;
-  supplier_name: string | null;
-  controlled_drug: boolean;
-  requires_batch: boolean;
-  requires_expiration_date: boolean;
-  minimum_stock: number | null;
-  maximum_stock: number | null;
-  average_daily_consumption: number | null;
-  lead_time_days: number | null;
-  last_purchase_price: number | null;
-  centers: Array<{
-    stock_center_id: string;
-    stock_center_name: string;
-    quantity: number;
-  }>;
-  last_batch: string | null;
-  last_expiration: string | null;
-}
+// ---------- Product lookup (inventory snapshot) ----------
+// The snapshot shape is owned by the engines layer; server functions only fill it.
+export type ProductLookupRow = InventorySnapshot;
 
 const searchSchema = z.object({
   q: z.string().trim().min(1).max(120),
@@ -73,67 +50,105 @@ const searchSchema = z.object({
 const PRODUCT_COLS = `id, barcode, internal_code, description, short_description,
   manufacturer, unit, category_id, default_supplier_id, controlled_drug,
   requires_batch, requires_expiration_date, minimum_stock, maximum_stock,
-  average_daily_consumption, lead_time_days, last_purchase_price,
+  average_daily_consumption, lead_time_days, last_purchase_price, last_purchase_at,
   categories(name), suppliers:default_supplier_id(name)`;
 
-async function enrich(
-  supabase: NonNullable<Parameters<Parameters<typeof createServerFn>[0] extends never ? never : never>[0]> extends never ? never : never,
-  _rows: unknown,
-) { return _rows; /* placeholder to satisfy tree-shaker */ }
-void enrich;
+const OUTBOUND_DB_TYPES = [
+  "consumption",
+  "simple_output",
+  "loss",
+  "expired",
+  "negative_adjustment",
+];
 
+type Db = SupabaseClient<Database>;
+
+/** Hydrates catalog rows with stock, batches, consumption and movement history. */
 async function hydrateProducts(
-  ctxSupabase: {
-    from: (t: string) => {
-      select: (cols: string) => { in: (col: string, vals: string[]) => Promise<{ data: unknown; error: { message: string } | null }> };
-    };
-  },
+  db: Db,
   rows: Array<Record<string, unknown>>,
-): Promise<ProductLookupRow[]> {
+): Promise<InventorySnapshot[]> {
   if (rows.length === 0) return [];
   const ids = rows.map((r) => r.id as string);
+  const since = new Date(Date.now() - 365 * 86_400_000).toISOString();
 
-  const [{ data: stock, error: se }, { data: lastMv, error: le }] = await Promise.all([
-    ctxSupabase.from("stock_items").select("product_id, stock_center_id, quantity, stock_centers(name)").in(
-      "product_id",
-      ids,
-    ) as Promise<{ data: unknown; error: { message: string } | null }>,
-    ctxSupabase.from("stock_items").select("product_id, batch, expiration_date, created_at").in(
-      "product_id",
-      ids,
-    ) as Promise<{ data: unknown; error: { message: string } | null }>,
+  const [{ data: stock, error: se }, { data: mvs, error: me }] = await Promise.all([
+    db
+      .from("stock_items")
+      .select(
+        "product_id, stock_center_id, batch, expiration_date, quantity, unit_cost, stock_centers(name)",
+      )
+      .is("deleted_at", null)
+      .in("product_id", ids),
+    db
+      .from("movements")
+      .select("product_id, movement_type, quantity, occurred_at")
+      .gte("occurred_at", since)
+      .in("product_id", ids)
+      .order("occurred_at", { ascending: false })
+      .limit(5000),
   ]);
   if (se) throw new Error(se.message);
-  if (le) throw new Error(le.message);
+  if (me) throw new Error(me.message);
 
-  const centersByProduct = new Map<string, ProductLookupRow["centers"]>();
-  for (const r of (stock as Array<{
+  const centersByProduct = new Map<string, InventorySnapshot["centers"]>();
+  const batchesByProduct = new Map<string, InventorySnapshot["batches"]>();
+
+  for (const raw of (stock ?? []) as unknown as Array<{
     product_id: string;
     stock_center_id: string;
-    quantity: number | string;
-    stock_centers: { name: string } | null;
-  }>) ?? []) {
-    const list = centersByProduct.get(r.product_id) ?? [];
-    const existing = list.find((c) => c.stock_center_id === r.stock_center_id);
-    if (existing) existing.quantity += Number(r.quantity ?? 0);
-    else
-      list.push({
-        stock_center_id: r.stock_center_id,
-        stock_center_name: r.stock_centers?.name ?? "—",
-        quantity: Number(r.quantity ?? 0),
-      });
-    centersByProduct.set(r.product_id, list);
-  }
-
-  const lastByProduct = new Map<string, { batch: string | null; expiration_date: string | null }>();
-  for (const r of ((lastMv as Array<{
-    product_id: string;
     batch: string | null;
     expiration_date: string | null;
-    created_at: string;
-  }>) ?? []).sort((a, b) => (a.created_at < b.created_at ? 1 : -1))) {
-    if (!lastByProduct.has(r.product_id))
-      lastByProduct.set(r.product_id, { batch: r.batch, expiration_date: r.expiration_date });
+    quantity: number | string;
+    unit_cost: number | string | null;
+    stock_centers: { name: string } | null;
+  }>) {
+    const centerName = raw.stock_centers?.name ?? "—";
+    const qty = Number(raw.quantity ?? 0);
+
+    const centers = centersByProduct.get(raw.product_id) ?? [];
+    const existing = centers.find((c) => c.stock_center_id === raw.stock_center_id);
+    if (existing) existing.quantity += qty;
+    else
+      centers.push({
+        stock_center_id: raw.stock_center_id,
+        stock_center_name: centerName,
+        quantity: qty,
+      });
+    centersByProduct.set(raw.product_id, centers);
+
+    const batches = batchesByProduct.get(raw.product_id) ?? [];
+    batches.push({
+      stock_center_id: raw.stock_center_id,
+      stock_center_name: centerName,
+      batch: raw.batch,
+      expiration_date: raw.expiration_date,
+      quantity: qty,
+      unit_cost: raw.unit_cost == null ? null : Number(raw.unit_cost),
+    });
+    batchesByProduct.set(raw.product_id, batches);
+  }
+
+  const now = Date.now();
+  const stats = new Map<
+    string,
+    { c30: number; c90: number; last: string | null }
+  >();
+  for (const m of (mvs ?? []) as unknown as Array<{
+    product_id: string;
+    movement_type: string;
+    quantity: number | string;
+    occurred_at: string;
+  }>) {
+    const s = stats.get(m.product_id) ?? { c30: 0, c90: 0, last: null };
+    if (!s.last || m.occurred_at > s.last) s.last = m.occurred_at;
+    if (OUTBOUND_DB_TYPES.includes(m.movement_type)) {
+      const ageDays = (now - new Date(m.occurred_at).getTime()) / 86_400_000;
+      const qty = Number(m.quantity ?? 0);
+      if (ageDays <= 30) s.c30 += qty;
+      if (ageDays <= 90) s.c90 += qty;
+    }
+    stats.set(m.product_id, s);
   }
 
   return rows.map((raw) => {
@@ -141,9 +156,14 @@ async function hydrateProducts(
       categories: { name: string } | null;
       suppliers: { name: string } | null;
     };
-    const last = lastByProduct.get(r.id as string);
+    const id = r.id as string;
+    const batches = batchesByProduct.get(id) ?? [];
+    const fefo = [...batches]
+      .filter((b) => b.quantity > 0)
+      .sort((a, b) => (a.expiration_date ?? "9999") < (b.expiration_date ?? "9999") ? -1 : 1)[0];
+    const st = stats.get(id);
     return {
-      id: r.id as string,
+      id,
       barcode: (r.barcode as string) ?? null,
       internal_code: (r.internal_code as string) ?? null,
       description: r.description as string,
@@ -163,10 +183,15 @@ async function hydrateProducts(
         r.average_daily_consumption == null ? null : Number(r.average_daily_consumption),
       lead_time_days: r.lead_time_days == null ? null : Number(r.lead_time_days),
       last_purchase_price: r.last_purchase_price == null ? null : Number(r.last_purchase_price),
-      centers: centersByProduct.get(r.id as string) ?? [],
-      last_batch: last?.batch ?? null,
-      last_expiration: last?.expiration_date ?? null,
-    };
+      last_purchase_at: (r.last_purchase_at as string) ?? null,
+      last_movement_at: st?.last ?? null,
+      centers: centersByProduct.get(id) ?? [],
+      batches,
+      consumption_30d: st?.c30 ?? 0,
+      consumption_90d: st?.c90 ?? 0,
+      last_batch: fefo?.batch ?? null,
+      last_expiration: fefo?.expiration_date ?? null,
+    } satisfies InventorySnapshot;
   });
 }
 
@@ -174,10 +199,11 @@ export const searchProductsForMovement = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => searchSchema.parse(input))
   .handler(async ({ data, context }): Promise<ProductLookupRow[]> => {
+    const db = context.supabase as unknown as Db;
     const term = data.q.replace(/[%_]/g, (m) => `\\${m}`);
     const like = `%${term}%`;
     // Exact barcode/internal-code lookup first
-    const { data: exact, error: ee } = await context.supabase
+    const { data: exact, error: ee } = await db
       .from("products")
       .select(PRODUCT_COLS)
       .is("deleted_at", null)
@@ -185,9 +211,9 @@ export const searchProductsForMovement = createServerFn({ method: "POST" })
       .limit(5);
     if (ee) throw new Error(ee.message);
     if (exact && exact.length > 0) {
-      return hydrateProducts(context.supabase as never, exact as Array<Record<string, unknown>>);
+      return hydrateProducts(db, exact as unknown as Array<Record<string, unknown>>);
     }
-    const { data: rows, error } = await context.supabase
+    const { data: rows, error } = await db
       .from("products")
       .select(PRODUCT_COLS)
       .is("deleted_at", null)
@@ -197,11 +223,28 @@ export const searchProductsForMovement = createServerFn({ method: "POST" })
       .order("description")
       .limit(data.limit ?? 15);
     if (error) throw new Error(error.message);
-    return hydrateProducts(
-      context.supabase as never,
-      (rows ?? []) as Array<Record<string, unknown>>,
-    );
+    return hydrateProducts(db, (rows ?? []) as unknown as Array<Record<string, unknown>>);
   });
+
+/** Full catalog snapshots — feeds the Alert Center and purchasing engines. */
+export const listInventorySnapshots = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ limit: z.number().int().min(1).max(1000).optional() }).parse(input ?? {}),
+  )
+  .handler(async ({ data, context }): Promise<InventorySnapshot[]> => {
+    const db = context.supabase as unknown as Db;
+    const { data: rows, error } = await db
+      .from("products")
+      .select(PRODUCT_COLS)
+      .is("deleted_at", null)
+      .eq("active", true)
+      .order("description")
+      .limit(data.limit ?? 400);
+    if (error) throw new Error(error.message);
+    return hydrateProducts(db, (rows ?? []) as unknown as Array<Record<string, unknown>>);
+  });
+
 
 // ---------- Stock centers ----------
 export interface StockCenterOption {

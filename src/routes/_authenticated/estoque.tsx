@@ -18,16 +18,19 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { ProductSummaryPanel } from "@/components/ProductSummaryPanel";
+import { QuickProductModal } from "@/components/QuickProductModal";
+import { ScannerService } from "@/services/scanner-service";
+import { AlertEngine, ALERT_META, type InventoryAlert } from "@/engines";
 import {
   MOVEMENT_TYPES, MOVEMENT_LABELS, INBOUND_TYPES, OUTBOUND_TYPES,
   searchProductsForMovement,
   listMovementStockCenters,
   registerMovement,
   listRecentMovements,
-  listStockAlerts,
+  listInventorySnapshots,
   type MovementType,
   type ProductLookupRow,
-  type StockAlert,
 } from "@/lib/movements.functions";
 
 export const Route = createFileRoute("/_authenticated/estoque")({
@@ -37,21 +40,13 @@ export const Route = createFileRoute("/_authenticated/estoque")({
 
 type Screen = "idle" | "picker" | "product" | "not-found";
 
-const ALERT_STYLE: Record<StockAlert["alert_kind"], { label: string; tone: string }> = {
-  out_of_stock:   { label: "Sem estoque",        tone: "bg-red-100 text-red-800 border-red-200" },
-  critical_stock: { label: "Estoque crítico",    tone: "bg-red-50 text-red-700 border-red-200" },
-  low_stock:      { label: "Estoque baixo",      tone: "bg-amber-50 text-amber-700 border-amber-200" },
-  expired:        { label: "Vencido",            tone: "bg-red-100 text-red-800 border-red-200" },
-  expiring_7:     { label: "Vence em 7d",        tone: "bg-red-50 text-red-700 border-red-200" },
-  expiring_30:    { label: "Vence em 30d",       tone: "bg-amber-50 text-amber-700 border-amber-200" },
-  expiring_60:    { label: "Vence em 60d",       tone: "bg-amber-50 text-amber-700 border-amber-200" },
-  expiring_90:    { label: "Vence em 90d",       tone: "bg-yellow-50 text-yellow-700 border-yellow-200" },
-  no_movement_30:  { label: "Sem giro 30d",  tone: "bg-slate-50 text-slate-600 border-slate-200" },
-  no_movement_60:  { label: "Sem giro 60d",  tone: "bg-slate-50 text-slate-600 border-slate-200" },
-  no_movement_90:  { label: "Sem giro 90d",  tone: "bg-slate-50 text-slate-600 border-slate-200" },
-  no_movement_180: { label: "Sem giro 180d", tone: "bg-slate-100 text-slate-700 border-slate-200" },
-  no_movement_365: { label: "Parado 1 ano+", tone: "bg-slate-100 text-slate-700 border-slate-200" },
+const SEVERITY_TONE: Record<InventoryAlert["severity"], string> = {
+  critical: "bg-red-100 text-red-800 border-red-200",
+  high: "bg-red-50 text-red-700 border-red-200",
+  medium: "bg-amber-50 text-amber-700 border-amber-200",
+  info: "bg-slate-50 text-slate-600 border-slate-200",
 };
+
 
 function fmtQty(n: number) {
   return Number.isInteger(n) ? String(n) : n.toFixed(3).replace(/\.?0+$/, "");
@@ -69,7 +64,7 @@ function Page() {
   const centersFn = useServerFn(listMovementStockCenters);
   const registerFn = useServerFn(registerMovement);
   const recentFn = useServerFn(listRecentMovements);
-  const alertsFn = useServerFn(listStockAlerts);
+  const snapshotsFn = useServerFn(listInventorySnapshots);
 
   const [movementType, setMovementType] = useState<MovementType>("purchase_entry");
   const [barcode, setBarcode] = useState("");
