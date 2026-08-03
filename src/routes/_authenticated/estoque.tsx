@@ -95,11 +95,17 @@ function Page() {
     queryFn: () => recentFn({ data: { limit: 15 } }),
     staleTime: 15_000,
   });
-  const alertsQuery = useQuery({
-    queryKey: ["stock-alerts"],
-    queryFn: () => alertsFn({ data: { limit: 30 } }),
+  const snapshotsQuery = useQuery({
+    queryKey: ["inventory-snapshots"],
+    queryFn: () => snapshotsFn({ data: { limit: 400 } }),
     staleTime: 60_000,
   });
+  const alerts = useMemo(
+    () => AlertEngine.forCatalog(snapshotsQuery.data ?? []).slice(0, 40),
+    [snapshotsQuery.data],
+  );
+
+  const [quickOpen, setQuickOpen] = useState(false);
 
   // Set default stock center from user profile
   useEffect(() => {
