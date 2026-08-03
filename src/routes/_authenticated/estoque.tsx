@@ -340,39 +340,16 @@ function Page() {
 
           {screen === "product" && product && (
             <>
-              {/* Product summary card */}
-              <div className="rounded-xl border bg-card p-5 shadow-sm">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="text-xs font-mono text-muted-foreground">{product.barcode ?? "sem barcode"} · {product.internal_code ?? "—"}</p>
-                    <h2 className="text-lg font-semibold mt-1 truncate">{product.description}</h2>
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                      {product.category_name ?? "Sem categoria"} · {product.manufacturer ?? "—"} · {product.supplier_name ?? "Sem fornecedor"} · {product.unit ?? "UN"}
-                    </p>
-                  </div>
+              <ProductSummaryPanel
+                product={product}
+                stockCenterId={stockCenterId || null}
+                actions={
                   <Button variant="ghost" size="sm" onClick={clearAll}>
-                    <ArrowLeft className="h-4 w-4 mr-1" />Novo
+                    <ArrowLeft className="mr-1 h-4 w-4" />Novo
                   </Button>
-                </div>
+                }
+              />
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-                  <Kpi label="Estoque total" value={fmtQty(totalStock)} />
-                  <Kpi label="Neste local" value={fmtQty(stockAtSelectedCenter)}
-                       tone={isOutbound && stockAtSelectedCenter <= 0 ? "danger" : undefined} />
-                  <Kpi label="Mínimo" value={product.minimum_stock != null ? fmtQty(product.minimum_stock) : "—"} />
-                  <Kpi label="Máximo" value={product.maximum_stock != null ? fmtQty(product.maximum_stock) : "—"} />
-                </div>
-
-                {product.centers.length > 0 && (
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {product.centers.map((c) => (
-                      <span key={c.stock_center_id} className="text-xs rounded-full border bg-muted/40 px-2 py-1">
-                        {c.stock_center_name}: <b>{fmtQty(c.quantity)}</b>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
 
               {/* Movement form */}
               <div className="rounded-xl border bg-card p-5 shadow-sm space-y-4">
