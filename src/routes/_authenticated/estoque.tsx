@@ -223,16 +223,22 @@ function Page() {
     return () => window.removeEventListener("keydown", onKey);
   }, [screen, handleSubmit, clearAll]);
 
+  // USB / Bluetooth scanner works even when no field is focused
+  useEffect(() => {
+    if (quickOpen) return;
+    return ScannerService.attachKeyboardWedge((code) => {
+      setBarcode(code);
+      void doSearch(code);
+    });
+  }, [doSearch, quickOpen]);
+
+  const isOutbound = OUTBOUND_TYPES.includes(movementType);
   const stockAtSelectedCenter = useMemo(() => {
     if (!product) return 0;
-    const c = product.centers.find((x) => x.stock_center_id === stockCenterId);
-    return c?.quantity ?? 0;
+    return product.centers.find((x) => x.stock_center_id === stockCenterId)?.quantity ?? 0;
   }, [product, stockCenterId]);
+  void isOutbound; void stockAtSelectedCenter;
 
-  const totalStock = useMemo(
-    () => (product ? product.centers.reduce((s, c) => s + c.quantity, 0) : 0),
-    [product],
-  );
 
   return (
     <AppShell title="Movimentações de Estoque">
