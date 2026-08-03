@@ -171,7 +171,7 @@ function Page() {
         description: `✓ ${MOVEMENT_LABELS[movementType]}  •  ✓ Estoque atualizado  •  ✓ Auditoria gerada`,
       });
       qc.invalidateQueries({ queryKey: ["recent-movements"] });
-      qc.invalidateQueries({ queryKey: ["stock-alerts"] });
+      qc.invalidateQueries({ queryKey: ["inventory-snapshots"] });
       clearAll();
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao registrar"),
