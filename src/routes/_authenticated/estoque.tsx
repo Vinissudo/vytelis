@@ -293,22 +293,26 @@ function Page() {
           {screen === "not-found" && !searching && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
               <div className="flex items-start gap-3">
-                <AlertTriangle className="h-5 w-5 text-amber-700 mt-0.5" />
+                <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-700" />
                 <div className="flex-1">
-                  <p className="font-medium text-amber-900">Produto não encontrado</p>
-                  <p className="text-sm text-amber-800/80 mt-1">
+                  <p className="font-medium text-amber-900">
+                    Produto não encontrado. Deseja cadastrar agora?
+                  </p>
+                  <p className="mt-1 text-sm text-amber-800/80">
                     O código <span className="font-mono">{barcode}</span> não existe no Cadastro Mestre.
                   </p>
-                  <div className="mt-3 flex gap-2">
-                    <Button asChild variant="default">
-                      <Link to="/produtos"><ExternalLink className="h-4 w-4 mr-2" />Cadastrar produto</Link>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button onClick={() => setQuickOpen(true)}>Cadastrar agora</Button>
+                    <Button asChild variant="outline">
+                      <Link to="/produtos"><ExternalLink className="mr-2 h-4 w-4" />Cadastro completo</Link>
                     </Button>
-                    <Button variant="outline" onClick={clearAll}>Tentar outro</Button>
+                    <Button variant="ghost" onClick={clearAll}>Tentar outro</Button>
                   </div>
                 </div>
               </div>
             </div>
           )}
+
 
           {screen === "picker" && (
             <div className="rounded-xl border bg-card p-5">
