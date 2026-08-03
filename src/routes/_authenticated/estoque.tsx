@@ -535,34 +535,31 @@ function Page() {
                 <AlertTriangle className="h-4 w-4 text-amber-600" />
                 <span className="font-medium">Alertas de estoque</span>
               </div>
-              <span className="text-xs text-muted-foreground">
-                {alertsQuery.data?.length ?? 0}
-              </span>
+              <span className="text-xs text-muted-foreground">{alerts.length}</span>
             </div>
             <div className="max-h-[520px] overflow-y-auto divide-y">
-              {(alertsQuery.data ?? []).map((a, i) => {
-                const style = ALERT_STYLE[a.alert_kind];
-                return (
-                  <div key={`${a.product_id}-${a.stock_center_id}-${i}`} className="px-5 py-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-medium truncate">{a.description}</p>
-                      <span className={cn("text-[10px] px-1.5 py-0.5 rounded border whitespace-nowrap", style.tone)}>
-                        {style.label}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Métrica: <b>{fmtQty(a.metric)}</b>
-                      {a.ref_date && <> · {new Date(a.ref_date).toLocaleDateString("pt-BR")}</>}
-                    </p>
+              {alerts.map((a) => (
+                <button
+                  key={a.key}
+                  onClick={() => { setBarcode(a.barcode ?? a.product_description); doSearch(a.barcode ?? a.product_description); }}
+                  className="block w-full px-5 py-3 text-left transition-colors hover:bg-accent/40"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="truncate text-sm font-medium">{a.product_description}</p>
+                    <span className={cn("whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px]", SEVERITY_TONE[a.severity])}>
+                      {ALERT_META[a.kind].label}
+                    </span>
                   </div>
-                );
-              })}
-              {(alertsQuery.data?.length ?? 0) === 0 && !alertsQuery.isLoading && (
+                  <p className="mt-1 text-xs text-muted-foreground">{a.message}</p>
+                </button>
+              ))}
+              {alerts.length === 0 && !snapshotsQuery.isLoading && (
                 <div className="px-5 py-8 text-center text-sm text-muted-foreground">
                   Nenhum alerta ativo.
                 </div>
               )}
             </div>
+
           </div>
 
           <div className="rounded-xl border bg-card p-5">
