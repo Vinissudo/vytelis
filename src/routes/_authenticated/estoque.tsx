@@ -232,12 +232,12 @@ function Page() {
     });
   }, [doSearch, quickOpen]);
 
-  const isOutbound = OUTBOUND_TYPES.includes(movementType);
   const stockAtSelectedCenter = useMemo(() => {
     if (!product) return 0;
     return product.centers.find((x) => x.stock_center_id === stockCenterId)?.quantity ?? 0;
   }, [product, stockCenterId]);
-  void isOutbound; void stockAtSelectedCenter;
+  void stockAtSelectedCenter;
+
 
 
   return (
