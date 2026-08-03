@@ -559,20 +559,19 @@ function Page() {
           </div>
         </div>
       </div>
+
+      <QuickProductModal
+        open={quickOpen}
+        barcode={barcode}
+        stockCenterId={stockCenterId || null}
+        onOpenChange={setQuickOpen}
+        onCreated={(code) => {
+          qc.invalidateQueries({ queryKey: ["inventory-snapshots"] });
+          qc.invalidateQueries({ queryKey: ["recent-movements"] });
+          void doSearch(code);
+        }}
+      />
     </AppShell>
   );
 }
 
-function Kpi({ label, value, tone }: { label: string; value: string; tone?: "danger" }) {
-  return (
-    <div className={cn(
-      "rounded-lg border bg-muted/30 px-3 py-2",
-      tone === "danger" && "border-red-200 bg-red-50",
-    )}>
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className={cn("text-lg font-semibold mt-0.5", tone === "danger" && "text-red-700")}>
-        {value}
-      </p>
-    </div>
-  );
-}
