@@ -18,16 +18,19 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { ProductSummaryPanel } from "@/components/ProductSummaryPanel";
+import { QuickProductModal } from "@/components/QuickProductModal";
+import { ScannerService } from "@/services/scanner-service";
+import { AlertEngine, ALERT_META, type InventoryAlert } from "@/engines";
 import {
   MOVEMENT_TYPES, MOVEMENT_LABELS, INBOUND_TYPES, OUTBOUND_TYPES,
   searchProductsForMovement,
   listMovementStockCenters,
   registerMovement,
   listRecentMovements,
-  listStockAlerts,
+  listInventorySnapshots,
   type MovementType,
   type ProductLookupRow,
-  type StockAlert,
 } from "@/lib/movements.functions";
 
 export const Route = createFileRoute("/_authenticated/estoque")({
@@ -37,21 +40,13 @@ export const Route = createFileRoute("/_authenticated/estoque")({
 
 type Screen = "idle" | "picker" | "product" | "not-found";
 
-const ALERT_STYLE: Record<StockAlert["alert_kind"], { label: string; tone: string }> = {
-  out_of_stock:   { label: "Sem estoque",        tone: "bg-red-100 text-red-800 border-red-200" },
-  critical_stock: { label: "Estoque crítico",    tone: "bg-red-50 text-red-700 border-red-200" },
-  low_stock:      { label: "Estoque baixo",      tone: "bg-amber-50 text-amber-700 border-amber-200" },
-  expired:        { label: "Vencido",            tone: "bg-red-100 text-red-800 border-red-200" },
-  expiring_7:     { label: "Vence em 7d",        tone: "bg-red-50 text-red-700 border-red-200" },
-  expiring_30:    { label: "Vence em 30d",       tone: "bg-amber-50 text-amber-700 border-amber-200" },
-  expiring_60:    { label: "Vence em 60d",       tone: "bg-amber-50 text-amber-700 border-amber-200" },
-  expiring_90:    { label: "Vence em 90d",       tone: "bg-yellow-50 text-yellow-700 border-yellow-200" },
-  no_movement_30:  { label: "Sem giro 30d",  tone: "bg-slate-50 text-slate-600 border-slate-200" },
-  no_movement_60:  { label: "Sem giro 60d",  tone: "bg-slate-50 text-slate-600 border-slate-200" },
-  no_movement_90:  { label: "Sem giro 90d",  tone: "bg-slate-50 text-slate-600 border-slate-200" },
-  no_movement_180: { label: "Sem giro 180d", tone: "bg-slate-100 text-slate-700 border-slate-200" },
-  no_movement_365: { label: "Parado 1 ano+", tone: "bg-slate-100 text-slate-700 border-slate-200" },
+const SEVERITY_TONE: Record<InventoryAlert["severity"], string> = {
+  critical: "bg-red-100 text-red-800 border-red-200",
+  high: "bg-red-50 text-red-700 border-red-200",
+  medium: "bg-amber-50 text-amber-700 border-amber-200",
+  info: "bg-slate-50 text-slate-600 border-slate-200",
 };
+
 
 function fmtQty(n: number) {
   return Number.isInteger(n) ? String(n) : n.toFixed(3).replace(/\.?0+$/, "");
@@ -69,7 +64,7 @@ function Page() {
   const centersFn = useServerFn(listMovementStockCenters);
   const registerFn = useServerFn(registerMovement);
   const recentFn = useServerFn(listRecentMovements);
-  const alertsFn = useServerFn(listStockAlerts);
+  const snapshotsFn = useServerFn(listInventorySnapshots);
 
   const [movementType, setMovementType] = useState<MovementType>("purchase_entry");
   const [barcode, setBarcode] = useState("");
@@ -100,11 +95,17 @@ function Page() {
     queryFn: () => recentFn({ data: { limit: 15 } }),
     staleTime: 15_000,
   });
-  const alertsQuery = useQuery({
-    queryKey: ["stock-alerts"],
-    queryFn: () => alertsFn({ data: { limit: 30 } }),
+  const snapshotsQuery = useQuery({
+    queryKey: ["inventory-snapshots"],
+    queryFn: () => snapshotsFn({ data: { limit: 400 } }),
     staleTime: 60_000,
   });
+  const alerts = useMemo(
+    () => AlertEngine.forCatalog(snapshotsQuery.data ?? []).slice(0, 40),
+    [snapshotsQuery.data],
+  );
+
+  const [quickOpen, setQuickOpen] = useState(false);
 
   // Set default stock center from user profile
   useEffect(() => {
@@ -170,7 +171,7 @@ function Page() {
         description: `✓ ${MOVEMENT_LABELS[movementType]}  •  ✓ Estoque atualizado  •  ✓ Auditoria gerada`,
       });
       qc.invalidateQueries({ queryKey: ["recent-movements"] });
-      qc.invalidateQueries({ queryKey: ["stock-alerts"] });
+      qc.invalidateQueries({ queryKey: ["inventory-snapshots"] });
       clearAll();
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao registrar"),
@@ -222,16 +223,22 @@ function Page() {
     return () => window.removeEventListener("keydown", onKey);
   }, [screen, handleSubmit, clearAll]);
 
+  // USB / Bluetooth scanner works even when no field is focused
+  useEffect(() => {
+    if (quickOpen) return;
+    return ScannerService.attachKeyboardWedge((code) => {
+      setBarcode(code);
+      void doSearch(code);
+    });
+  }, [doSearch, quickOpen]);
+
   const stockAtSelectedCenter = useMemo(() => {
     if (!product) return 0;
-    const c = product.centers.find((x) => x.stock_center_id === stockCenterId);
-    return c?.quantity ?? 0;
+    return product.centers.find((x) => x.stock_center_id === stockCenterId)?.quantity ?? 0;
   }, [product, stockCenterId]);
+  void stockAtSelectedCenter;
 
-  const totalStock = useMemo(
-    () => (product ? product.centers.reduce((s, c) => s + c.quantity, 0) : 0),
-    [product],
-  );
+
 
   return (
     <AppShell title="Movimentações de Estoque">
@@ -286,22 +293,26 @@ function Page() {
           {screen === "not-found" && !searching && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
               <div className="flex items-start gap-3">
-                <AlertTriangle className="h-5 w-5 text-amber-700 mt-0.5" />
+                <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-700" />
                 <div className="flex-1">
-                  <p className="font-medium text-amber-900">Produto não encontrado</p>
-                  <p className="text-sm text-amber-800/80 mt-1">
+                  <p className="font-medium text-amber-900">
+                    Produto não encontrado. Deseja cadastrar agora?
+                  </p>
+                  <p className="mt-1 text-sm text-amber-800/80">
                     O código <span className="font-mono">{barcode}</span> não existe no Cadastro Mestre.
                   </p>
-                  <div className="mt-3 flex gap-2">
-                    <Button asChild variant="default">
-                      <Link to="/produtos"><ExternalLink className="h-4 w-4 mr-2" />Cadastrar produto</Link>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button onClick={() => setQuickOpen(true)}>Cadastrar agora</Button>
+                    <Button asChild variant="outline">
+                      <Link to="/produtos"><ExternalLink className="mr-2 h-4 w-4" />Cadastro completo</Link>
                     </Button>
-                    <Button variant="outline" onClick={clearAll}>Tentar outro</Button>
+                    <Button variant="ghost" onClick={clearAll}>Tentar outro</Button>
                   </div>
                 </div>
               </div>
             </div>
           )}
+
 
           {screen === "picker" && (
             <div className="rounded-xl border bg-card p-5">
@@ -333,39 +344,16 @@ function Page() {
 
           {screen === "product" && product && (
             <>
-              {/* Product summary card */}
-              <div className="rounded-xl border bg-card p-5 shadow-sm">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="text-xs font-mono text-muted-foreground">{product.barcode ?? "sem barcode"} · {product.internal_code ?? "—"}</p>
-                    <h2 className="text-lg font-semibold mt-1 truncate">{product.description}</h2>
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                      {product.category_name ?? "Sem categoria"} · {product.manufacturer ?? "—"} · {product.supplier_name ?? "Sem fornecedor"} · {product.unit ?? "UN"}
-                    </p>
-                  </div>
+              <ProductSummaryPanel
+                product={product}
+                stockCenterId={stockCenterId || null}
+                actions={
                   <Button variant="ghost" size="sm" onClick={clearAll}>
-                    <ArrowLeft className="h-4 w-4 mr-1" />Novo
+                    <ArrowLeft className="mr-1 h-4 w-4" />Novo
                   </Button>
-                </div>
+                }
+              />
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-                  <Kpi label="Estoque total" value={fmtQty(totalStock)} />
-                  <Kpi label="Neste local" value={fmtQty(stockAtSelectedCenter)}
-                       tone={isOutbound && stockAtSelectedCenter <= 0 ? "danger" : undefined} />
-                  <Kpi label="Mínimo" value={product.minimum_stock != null ? fmtQty(product.minimum_stock) : "—"} />
-                  <Kpi label="Máximo" value={product.maximum_stock != null ? fmtQty(product.maximum_stock) : "—"} />
-                </div>
-
-                {product.centers.length > 0 && (
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {product.centers.map((c) => (
-                      <span key={c.stock_center_id} className="text-xs rounded-full border bg-muted/40 px-2 py-1">
-                        {c.stock_center_name}: <b>{fmtQty(c.quantity)}</b>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
 
               {/* Movement form */}
               <div className="rounded-xl border bg-card p-5 shadow-sm space-y-4">
@@ -534,34 +522,31 @@ function Page() {
                 <AlertTriangle className="h-4 w-4 text-amber-600" />
                 <span className="font-medium">Alertas de estoque</span>
               </div>
-              <span className="text-xs text-muted-foreground">
-                {alertsQuery.data?.length ?? 0}
-              </span>
+              <span className="text-xs text-muted-foreground">{alerts.length}</span>
             </div>
             <div className="max-h-[520px] overflow-y-auto divide-y">
-              {(alertsQuery.data ?? []).map((a, i) => {
-                const style = ALERT_STYLE[a.alert_kind];
-                return (
-                  <div key={`${a.product_id}-${a.stock_center_id}-${i}`} className="px-5 py-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-medium truncate">{a.description}</p>
-                      <span className={cn("text-[10px] px-1.5 py-0.5 rounded border whitespace-nowrap", style.tone)}>
-                        {style.label}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Métrica: <b>{fmtQty(a.metric)}</b>
-                      {a.ref_date && <> · {new Date(a.ref_date).toLocaleDateString("pt-BR")}</>}
-                    </p>
+              {alerts.map((a) => (
+                <button
+                  key={a.key}
+                  onClick={() => { setBarcode(a.barcode ?? a.product_description); doSearch(a.barcode ?? a.product_description); }}
+                  className="block w-full px-5 py-3 text-left transition-colors hover:bg-accent/40"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="truncate text-sm font-medium">{a.product_description}</p>
+                    <span className={cn("whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px]", SEVERITY_TONE[a.severity])}>
+                      {ALERT_META[a.kind].label}
+                    </span>
                   </div>
-                );
-              })}
-              {(alertsQuery.data?.length ?? 0) === 0 && !alertsQuery.isLoading && (
+                  <p className="mt-1 text-xs text-muted-foreground">{a.message}</p>
+                </button>
+              ))}
+              {alerts.length === 0 && !snapshotsQuery.isLoading && (
                 <div className="px-5 py-8 text-center text-sm text-muted-foreground">
                   Nenhum alerta ativo.
                 </div>
               )}
             </div>
+
           </div>
 
           <div className="rounded-xl border bg-card p-5">
@@ -574,20 +559,19 @@ function Page() {
           </div>
         </div>
       </div>
+
+      <QuickProductModal
+        open={quickOpen}
+        barcode={barcode}
+        stockCenterId={stockCenterId || null}
+        onOpenChange={setQuickOpen}
+        onCreated={(code) => {
+          qc.invalidateQueries({ queryKey: ["inventory-snapshots"] });
+          qc.invalidateQueries({ queryKey: ["recent-movements"] });
+          void doSearch(code);
+        }}
+      />
     </AppShell>
   );
 }
 
-function Kpi({ label, value, tone }: { label: string; value: string; tone?: "danger" }) {
-  return (
-    <div className={cn(
-      "rounded-lg border bg-muted/30 px-3 py-2",
-      tone === "danger" && "border-red-200 bg-red-50",
-    )}>
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className={cn("text-lg font-semibold mt-0.5", tone === "danger" && "text-red-700")}>
-        {value}
-      </p>
-    </div>
-  );
-}
