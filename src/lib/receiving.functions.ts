@@ -359,3 +359,95 @@ export const listReceipts = createServerFn({ method: "POST" })
       item_count: ((r.receipt_items as unknown[]) ?? []).length,
     }));
   });
+
+// ---------- Cadastro automático (Produto Mestre) ----------
+const masterProductSchema = z.object({
+  gtin: z.string().trim().max(20).optional().nullable(),
+  internal_code: z.string().trim().max(60).optional().nullable(),
+  description: z.string().trim().min(2, "Descrição obrigatória").max(500),
+  manufacturer: z.string().trim().max(200).optional().nullable(),
+  category_id: z.string().uuid().optional().nullable(),
+  default_supplier_id: z.string().uuid().optional().nullable(),
+  purchase_unit: z.string().trim().max(20).optional().nullable(),
+  consumption_unit: z.string().trim().max(20).optional().nullable(),
+  package_quantity: z
+    .union([z.number(), z.string()])
+    .transform((v) => (typeof v === "number" ? v : Number(String(v).trim() || "1")))
+    .refine((v) => Number.isFinite(v) && v > 0, { message: "Embalagem inválida" }),
+  minimum_stock: z.number().nullable().optional(),
+  maximum_stock: z.number().nullable().optional(),
+  controlled_drug: z.boolean().optional(),
+  cold_chain: z.boolean().optional(),
+  allows_fractioning: z.boolean().optional(),
+  requires_batch: z.boolean().optional(),
+  requires_expiration_date: z.boolean().optional(),
+});
+
+/** Cria o Produto Mestre sem estoque — o lote entra pelo Motor de Recebimento. */
+export const createMasterProduct = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => masterProductSchema.parse(input))
+  .handler(async ({ data, context }): Promise<ReceivingProduct> => {
+    const { data: profile } = await context.supabase
+      .from("profiles")
+      .select("hospital_id")
+      .eq("id", context.userId)
+      .maybeSingle();
+    if (!profile?.hospital_id) throw new Error("Perfil sem hospital vinculado.");
+
+    const gtin = data.gtin?.trim() || null;
+    if (gtin) {
+      const { data: dup } = await context.supabase
+        .from("products")
+        .select("id")
+        .is("deleted_at", null)
+        .or(`gtin.eq.${gtin},barcode.eq.${gtin}`)
+        .maybeSingle();
+      if (dup) throw new Error("Já existe um produto ativo com este GTIN.");
+    }
+
+    const { data: row, error } = await context.supabase
+      .from("products")
+      .insert({
+        hospital_id: profile.hospital_id,
+        gtin,
+        barcode: gtin,
+        internal_code: data.internal_code || null,
+        description: data.description,
+        manufacturer: data.manufacturer || null,
+        category_id: data.category_id || null,
+        default_supplier_id: data.default_supplier_id || null,
+        unit: data.consumption_unit || "UN",
+        purchase_unit: data.purchase_unit || "UN",
+        consumption_unit: data.consumption_unit || "UN",
+        package_quantity: data.package_quantity,
+        minimum_stock: data.minimum_stock ?? null,
+        maximum_stock: data.maximum_stock ?? null,
+        controlled_drug: data.controlled_drug ?? false,
+        cold_chain: data.cold_chain ?? false,
+        allows_fractioning: data.allows_fractioning ?? false,
+        requires_batch: data.requires_batch ?? true,
+        requires_expiration_date: data.requires_expiration_date ?? true,
+        created_by: context.userId,
+        updated_by: context.userId,
+      })
+      .select(PRODUCT_COLS)
+      .single();
+    if (error) {
+      if (error.message.includes("permission") || error.code === "42501") {
+        throw new Error("Você não tem permissão para cadastrar produtos.");
+      }
+      throw new Error(error.message);
+    }
+
+    await context.supabase.from("audit_log").insert({
+      hospital_id: profile.hospital_id,
+      user_id: context.userId,
+      entity: "products",
+      entity_id: (row as { id: string }).id,
+      action: "create_from_receiving",
+      after: row as never,
+    });
+
+    return toProduct(row as Record<string, unknown>);
+  });
