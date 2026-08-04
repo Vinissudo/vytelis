@@ -2,7 +2,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   Activity,
   LayoutDashboard,
-  Package,
+  PackageCheck,
   Boxes,
   Warehouse,
   BedDouble,
