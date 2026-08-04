@@ -29,12 +29,13 @@ export const navGroups = [
   {
     label: "Suprimentos",
     items: [
-      { to: "/produtos", label: "Cadastro Mestre", icon: Package },
+      { to: "/recebimento", label: "Recebimento", icon: PackageCheck },
       { to: "/estoque", label: "Estoque", icon: Boxes },
       { to: "/almoxarifado", label: "Almoxarifado", icon: Warehouse },
       { to: "/inventario", label: "Inventário", icon: ClipboardList },
     ],
   },
+
   {
     label: "Cadastros",
     items: [
