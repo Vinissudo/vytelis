@@ -554,10 +554,22 @@ function ReceivingPage() {
                 <CardContent className="space-y-3 pt-6">
                   <Label>Buscar produto</Label>
                   <Input
+                    ref={manualRef}
                     value={manualTerm}
                     onChange={(e) => setManualTerm(e.target.value)}
-                    placeholder="Descrição, código interno ou GTIN"
+                    placeholder="Código interno, descrição ou GTIN"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Código de barras não é obrigatório — produtos sem GTIN são localizados pelo
+                    código interno ou pela descrição.
+                  </p>
+
+                  {manualResults.isFetching && (
+                    <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Buscando…
+                    </p>
+                  )}
+
                   {(manualResults.data ?? []).length > 0 && !product && (
                     <div className="max-h-64 space-y-1 overflow-y-auto">
                       {(manualResults.data ?? []).map((p) => (
@@ -568,16 +580,40 @@ function ReceivingPage() {
                         >
                           <span className="font-medium">{p.description}</span>
                           <span className="ml-2 font-mono text-xs text-muted-foreground">
-                            {p.gtin ?? p.internal_code ?? ""}
+                            {p.internal_code ?? p.gtin ?? p.barcode ?? ""}
                           </span>
                         </button>
                       ))}
+                    </div>
+                  )}
+
+                  {manualNotFound && (
+                    <div className="flex flex-col gap-3 rounded-lg border border-dashed px-4 py-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+                      <span className="font-medium">Produto não encontrado.</span>
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          const term = manualQuery;
+                          const numeric = /^\d{8,14}$/.test(term);
+                          setPendingXmlItem(null);
+                          setPrefill({
+                            gtin: numeric ? term : null,
+                            internal_code: numeric ? null : null,
+                            description: numeric ? null : term,
+                            supplier_id: supplierId || null,
+                          });
+                          setModalOpen(true);
+                        }}
+                      >
+                        <PackagePlus className="mr-2 h-4 w-4" /> Cadastrar produto
+                      </Button>
                     </div>
                   )}
                 </CardContent>
               </Card>
               {product && <ItemForm />}
             </TabsContent>
+
           </Tabs>
         </div>
 
