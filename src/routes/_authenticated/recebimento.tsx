@@ -683,11 +683,21 @@ function ReceivingPage() {
               </Badge>
             )}
           </CardTitle>
-          <p className="text-xs text-muted-foreground">
-            GTIN {product.gtin ?? product.barcode ?? "—"} · Unidade de consumo{" "}
-            {product.consumption_unit ?? "UN"}
-          </p>
+          <div className="grid gap-x-4 gap-y-1 text-xs text-muted-foreground sm:grid-cols-3">
+            <span>Código interno: <strong>{product.internal_code ?? "—"}</strong></span>
+            <span>GTIN: <strong>{product.gtin ?? product.barcode ?? "—"}</strong></span>
+            <span>Unidade de compra: <strong>{draft.purchaseUnit || "UN"}</strong></span>
+            <span>Fator de conversão: <strong>{draft.packageQuantity || "1"}</strong></span>
+            <span>Unidade mínima: <strong>{product.consumption_unit ?? "UN"}</strong></span>
+            <span>
+              Convertido:{" "}
+              <strong>
+                {conversion ? `${conversion.consumptionQuantity} ${conversion.consumptionUnit}` : "—"}
+              </strong>
+            </span>
+          </div>
         </CardHeader>
+
         <CardContent className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1.5">
