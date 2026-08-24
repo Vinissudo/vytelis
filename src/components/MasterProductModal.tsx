@@ -14,6 +14,7 @@ import { createMasterProduct, type ReceivingProduct } from "@/lib/receiving.func
 
 export interface MasterProductPrefill {
   gtin?: string | null;
+  internal_code?: string | null;
   description?: string | null;
   manufacturer?: string | null;
   purchase_unit?: string | null;
@@ -51,7 +52,7 @@ export function MasterProductModal({ open, prefill, onOpenChange, onCreated }: P
   useEffect(() => {
     if (!open) return;
     setDescription(prefill.description ?? "");
-    setInternalCode("");
+    setInternalCode(prefill.internal_code ?? "");
     setManufacturer(prefill.manufacturer ?? "");
     setPurchaseUnit((prefill.purchase_unit ?? "CX").toUpperCase());
     setConsumptionUnit("UN");

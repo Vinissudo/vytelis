@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
-  Barcode, FileCode2, Keyboard, Loader2, PackageCheck, Snowflake, ShieldAlert,
+  Barcode, FileCode2, Keyboard, Loader2, PackageCheck, PackagePlus, Snowflake, ShieldAlert,
   ScanLine, Upload, RotateCcw,
 } from "lucide-react";
 import { AppShell } from "@/components/AppSidebar";
@@ -100,6 +100,7 @@ function ReceivingPage() {
 
   // ---------- fluxo por leitura / manual ----------
   const scanRef = useRef<HTMLInputElement>(null);
+  const manualRef = useRef<HTMLInputElement>(null);
   const qtyRef = useRef<HTMLInputElement>(null);
   const [code, setCode] = useState("");
   const [product, setProduct] = useState<ReceivingProduct | null>(null);
@@ -113,12 +114,23 @@ function ReceivingPage() {
     window.setTimeout(() => scanRef.current?.focus(), 20);
   }, []);
 
+  const tabRef = useRef<Source>("gs1");
+  tabRef.current = tab;
+
+  const [manualTerm, setManualTerm] = useState("");
+
   const resetFlow = useCallback(() => {
     setCode("");
     setProduct(null);
     setDraft(emptyDraft());
-    focusScanner();
+    if (tabRef.current === "manual") {
+      setManualTerm("");
+      window.setTimeout(() => manualRef.current?.focus(), 20);
+    } else {
+      focusScanner();
+    }
   }, [focusScanner]);
+
 
   const applyProduct = useCallback(
     (p: ReceivingProduct, gs1?: { batch: string | null; expirationDate: string | null; manufactureDate: string | null }) => {
@@ -241,12 +253,20 @@ function ReceivingPage() {
   }, [canReceive, receiveMut, resetFlow]);
 
   // ---------- busca manual ----------
-  const [manualTerm, setManualTerm] = useState("");
+  const manualQuery = manualTerm.trim();
   const manualResults = useQuery({
-    queryKey: ["receiving", "search", manualTerm],
-    queryFn: () => searchFn({ data: { q: manualTerm } }),
-    enabled: tab === "manual" && manualTerm.trim().length >= 2,
+    queryKey: ["receiving", "search", manualQuery],
+    queryFn: () => searchFn({ data: { q: manualQuery } }),
+    enabled: tab === "manual" && manualQuery.length >= 2,
   });
+  const manualNotFound =
+    tab === "manual" &&
+    !product &&
+    manualQuery.length >= 2 &&
+    manualResults.isFetched &&
+    !manualResults.isFetching &&
+    (manualResults.data ?? []).length === 0;
+
 
   // ---------- XML NF-e ----------
   const [xmlDoc, setXmlDoc] = useState<ReturnType<typeof NFeParser.parse> | null>(null);
@@ -534,10 +554,22 @@ function ReceivingPage() {
                 <CardContent className="space-y-3 pt-6">
                   <Label>Buscar produto</Label>
                   <Input
+                    ref={manualRef}
                     value={manualTerm}
                     onChange={(e) => setManualTerm(e.target.value)}
-                    placeholder="Descrição, código interno ou GTIN"
+                    placeholder="Código interno, descrição ou GTIN"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Código de barras não é obrigatório — produtos sem GTIN são localizados pelo
+                    código interno ou pela descrição.
+                  </p>
+
+                  {manualResults.isFetching && (
+                    <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Buscando…
+                    </p>
+                  )}
+
                   {(manualResults.data ?? []).length > 0 && !product && (
                     <div className="max-h-64 space-y-1 overflow-y-auto">
                       {(manualResults.data ?? []).map((p) => (
@@ -548,16 +580,40 @@ function ReceivingPage() {
                         >
                           <span className="font-medium">{p.description}</span>
                           <span className="ml-2 font-mono text-xs text-muted-foreground">
-                            {p.gtin ?? p.internal_code ?? ""}
+                            {p.internal_code ?? p.gtin ?? p.barcode ?? ""}
                           </span>
                         </button>
                       ))}
+                    </div>
+                  )}
+
+                  {manualNotFound && (
+                    <div className="flex flex-col gap-3 rounded-lg border border-dashed px-4 py-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+                      <span className="font-medium">Produto não encontrado.</span>
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          const term = manualQuery;
+                          const numeric = /^\d{8,14}$/.test(term);
+                          setPendingXmlItem(null);
+                          setPrefill({
+                            gtin: numeric ? term : null,
+                            internal_code: numeric ? null : null,
+                            description: numeric ? null : term,
+                            supplier_id: supplierId || null,
+                          });
+                          setModalOpen(true);
+                        }}
+                      >
+                        <PackagePlus className="mr-2 h-4 w-4" /> Cadastrar produto
+                      </Button>
                     </div>
                   )}
                 </CardContent>
               </Card>
               {product && <ItemForm />}
             </TabsContent>
+
           </Tabs>
         </div>
 
@@ -627,11 +683,21 @@ function ReceivingPage() {
               </Badge>
             )}
           </CardTitle>
-          <p className="text-xs text-muted-foreground">
-            GTIN {product.gtin ?? product.barcode ?? "—"} · Unidade de consumo{" "}
-            {product.consumption_unit ?? "UN"}
-          </p>
+          <div className="grid gap-x-4 gap-y-1 text-xs text-muted-foreground sm:grid-cols-3">
+            <span>Código interno: <strong>{product.internal_code ?? "—"}</strong></span>
+            <span>GTIN: <strong>{product.gtin ?? product.barcode ?? "—"}</strong></span>
+            <span>Unidade de compra: <strong>{draft.purchaseUnit || "UN"}</strong></span>
+            <span>Fator de conversão: <strong>{draft.packageQuantity || "1"}</strong></span>
+            <span>Unidade mínima: <strong>{product.consumption_unit ?? "UN"}</strong></span>
+            <span>
+              Convertido:{" "}
+              <strong>
+                {conversion ? `${conversion.consumptionQuantity} ${conversion.consumptionUnit}` : "—"}
+              </strong>
+            </span>
+          </div>
         </CardHeader>
+
         <CardContent className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1.5">
