@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
-  Barcode, FileCode2, Keyboard, Loader2, PackageCheck, Snowflake, ShieldAlert,
+  Barcode, FileCode2, Keyboard, Loader2, PackageCheck, PackagePlus, Snowflake, ShieldAlert,
   ScanLine, Upload, RotateCcw,
 } from "lucide-react";
 import { AppShell } from "@/components/AppSidebar";
