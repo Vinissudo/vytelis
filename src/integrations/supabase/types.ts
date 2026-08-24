@@ -1066,7 +1066,137 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_stock_alerts: {
+        Row: {
+          alert_kind: string | null
+          description: string | null
+          hospital_id: string | null
+          metric: number | null
+          product_id: string | null
+          ref_date: string | null
+          stock_center_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_balances_hospital_id_fkey"
+            columns: ["hospital_id"]
+            isOneToOne: false
+            referencedRelation: "hospitals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_balances_location_id_fkey"
+            columns: ["stock_center_id"]
+            isOneToOne: false
+            referencedRelation: "stock_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_balances_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_stock_balances: {
+        Row: {
+          barcode: string | null
+          batch_code: string | null
+          batch_id: string | null
+          batch_status: Database["public"]["Enums"]["batch_status"] | null
+          consumption_unit: string | null
+          days_to_expire: number | null
+          description: string | null
+          expiration_date: string | null
+          hospital_id: string | null
+          id: string | null
+          internal_code: string | null
+          location_id: string | null
+          location_name: string | null
+          location_type: Database["public"]["Enums"]["stock_center_type"] | null
+          manufacture_date: string | null
+          max_quantity: number | null
+          min_quantity: number | null
+          product_id: string | null
+          quantity_available: number | null
+          quantity_reserved: number | null
+          quantity_total: number | null
+          replenishment_status: string | null
+          stock_value: number | null
+          unit: string | null
+          unit_cost: number | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_balances_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_balances_hospital_id_fkey"
+            columns: ["hospital_id"]
+            isOneToOne: false
+            referencedRelation: "hospitals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_balances_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "stock_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_balances_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_stock_health: {
+        Row: {
+          coverage_days: number | null
+          current_stock: number | null
+          description: string | null
+          hospital_id: string | null
+          last_movement_at: string | null
+          maximum_stock: number | null
+          minimum_stock: number | null
+          product_id: string | null
+          stock_center_id: string | null
+          stock_value: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_balances_hospital_id_fkey"
+            columns: ["hospital_id"]
+            isOneToOne: false
+            referencedRelation: "hospitals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_balances_location_id_fkey"
+            columns: ["stock_center_id"]
+            isOneToOne: false
+            referencedRelation: "stock_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_balances_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       can_operate_stock: { Args: { _user_id: string }; Returns: boolean }
@@ -1075,6 +1205,26 @@ export type Database = {
         Returns: Json
       }
       current_hospital_id: { Args: never; Returns: string }
+      ensure_batch: {
+        Args: {
+          p_code: string
+          p_expiration: string
+          p_hospital_id: string
+          p_manufacture?: string
+          p_product_id: string
+          p_supplier_id?: string
+          p_unit_cost?: number
+        }
+        Returns: string
+      }
+      fefo_allocate: {
+        Args: {
+          p_location_id: string
+          p_product_id: string
+          p_quantity: number
+        }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1083,6 +1233,22 @@ export type Database = {
         Returns: boolean
       }
       is_admin_or_manager: { Args: { _user_id: string }; Returns: boolean }
+      process_movement: {
+        Args: {
+          p_adjustment_direction?: string
+          p_allocations: Json
+          p_destination_location_id?: string
+          p_document_ref?: string
+          p_origin_location_id?: string
+          p_override_reason?: string
+          p_reason?: string
+          p_reference_id?: string
+          p_reference_type?: string
+          p_type: string
+          p_user_id?: string
+        }
+        Returns: Json
+      }
       receive_product_batch: { Args: { p: Json }; Returns: Json }
       register_movement: { Args: { p: Json }; Returns: Json }
       show_limit: { Args: never; Returns: number }
