@@ -114,7 +114,7 @@ function Page() {
   const critical = rows.filter((r) => r.replenishment_status === "CRITICAL" || r.replenishment_status === "OUT");
 
   return (
-    <AppShell>
+    <AppShell title="Saldos de Estoque">
       <div className="space-y-6">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
