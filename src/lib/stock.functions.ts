@@ -228,15 +228,15 @@ export const processMovement = createServerFn({ method: "POST" })
     const { data: res, error } = await context.supabase.rpc("process_movement", {
       p_type: data.type,
       p_allocations: data.allocations as never,
-      p_origin_location_id: data.origin_location_id ?? null,
-      p_destination_location_id: data.destination_location_id ?? null,
+      p_origin_location_id: data.origin_location_id ?? undefined,
+      p_destination_location_id: data.destination_location_id ?? undefined,
       p_user_id: context.userId,
-      p_reason: data.reason ?? null,
-      p_document_ref: data.document_ref ?? null,
-      p_adjustment_direction: data.adjustment_direction ?? null,
-      p_override_reason: data.override_reason ?? null,
-      p_reference_type: data.reference_type ?? null,
-      p_reference_id: data.reference_id ?? null,
+      p_reason: data.reason ?? undefined,
+      p_document_ref: data.document_ref ?? undefined,
+      p_adjustment_direction: data.adjustment_direction ?? undefined,
+      p_override_reason: data.override_reason ?? undefined,
+      p_reference_type: data.reference_type ?? undefined,
+      p_reference_id: data.reference_id ?? undefined,
     });
     if (error) throw mapEngineError(error.message ?? "");
     const out = res as unknown as ProcessMovementResult;
