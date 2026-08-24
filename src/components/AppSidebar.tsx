@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   PackageCheck,
   Boxes,
+  Layers,
   Warehouse,
   BedDouble,
   ClipboardList,
