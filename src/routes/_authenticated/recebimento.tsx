@@ -100,6 +100,7 @@ function ReceivingPage() {
 
   // ---------- fluxo por leitura / manual ----------
   const scanRef = useRef<HTMLInputElement>(null);
+  const manualRef = useRef<HTMLInputElement>(null);
   const qtyRef = useRef<HTMLInputElement>(null);
   const [code, setCode] = useState("");
   const [product, setProduct] = useState<ReceivingProduct | null>(null);
@@ -113,12 +114,23 @@ function ReceivingPage() {
     window.setTimeout(() => scanRef.current?.focus(), 20);
   }, []);
 
+  const tabRef = useRef<Source>("gs1");
+  tabRef.current = tab;
+
+  const [manualTerm, setManualTerm] = useState("");
+
   const resetFlow = useCallback(() => {
     setCode("");
     setProduct(null);
     setDraft(emptyDraft());
-    focusScanner();
+    if (tabRef.current === "manual") {
+      setManualTerm("");
+      window.setTimeout(() => manualRef.current?.focus(), 20);
+    } else {
+      focusScanner();
+    }
   }, [focusScanner]);
+
 
   const applyProduct = useCallback(
     (p: ReceivingProduct, gs1?: { batch: string | null; expirationDate: string | null; manufactureDate: string | null }) => {
