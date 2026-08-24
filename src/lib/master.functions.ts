@@ -305,30 +305,31 @@ export const getProductSummary = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<ProductSummary> => {
     const [{ data: items, error: ie }, { data: last, error: le }] = await Promise.all([
       context.supabase
-        .from("stock_items")
-        .select("quantity")
-        .eq("product_id", data.product_id)
-        .is("deleted_at", null),
+        .from("v_stock_balances")
+        .select("quantity_available")
+        .eq("product_id", data.product_id),
       context.supabase
-        .from("stock_items")
-        .select("batch, expiration_date, created_at")
+        .from("v_stock_balances")
+        .select("batch_code, expiration_date, updated_at")
         .eq("product_id", data.product_id)
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false })
+        .order("expiration_date", { ascending: true, nullsFirst: false })
         .limit(1)
         .maybeSingle(),
     ]);
     if (ie) throw new Error(ie.message);
     if (le) throw new Error(le.message);
-    const current_stock = ((items ?? []) as { quantity: number | string }[])
-      .reduce((s, r) => s + Number(r.quantity ?? 0), 0);
-    const row = last as { batch: string | null; expiration_date: string | null; created_at: string } | null;
+    const current_stock = ((items ?? []) as unknown as { quantity_available: number | string }[])
+      .reduce((s, r) => s + Number(r.quantity_available ?? 0), 0);
+    const row = last as unknown as {
+      batch_code: string | null; expiration_date: string | null; updated_at: string;
+    } | null;
     return {
       current_stock,
-      last_batch: row?.batch ?? null,
+      last_batch: row?.batch_code ?? null,
       last_expiration: row?.expiration_date ?? null,
-      last_entry_at: row?.created_at ?? null,
+      last_entry_at: row?.updated_at ?? null,
     };
+
   });
 
 export interface RecentEntry {

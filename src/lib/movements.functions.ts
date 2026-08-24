@@ -74,11 +74,10 @@ async function hydrateProducts(
 
   const [{ data: stock, error: se }, { data: mvs, error: me }] = await Promise.all([
     db
-      .from("stock_items")
+      .from("v_stock_balances")
       .select(
-        "product_id, stock_center_id, batch, expiration_date, quantity, unit_cost, stock_centers(name)",
+        "product_id, location_id, location_name, batch_code, expiration_date, quantity_total, quantity_available, unit_cost",
       )
-      .is("deleted_at", null)
       .in("product_id", ids),
     db
       .from("movements")
@@ -96,22 +95,22 @@ async function hydrateProducts(
 
   for (const raw of (stock ?? []) as unknown as Array<{
     product_id: string;
-    stock_center_id: string;
-    batch: string | null;
+    location_id: string;
+    location_name: string | null;
+    batch_code: string | null;
     expiration_date: string | null;
-    quantity: number | string;
+    quantity_available: number | string;
     unit_cost: number | string | null;
-    stock_centers: { name: string } | null;
   }>) {
-    const centerName = raw.stock_centers?.name ?? "—";
-    const qty = Number(raw.quantity ?? 0);
+    const centerName = raw.location_name ?? "—";
+    const qty = Number(raw.quantity_available ?? 0);
 
     const centers = centersByProduct.get(raw.product_id) ?? [];
-    const existing = centers.find((c) => c.stock_center_id === raw.stock_center_id);
+    const existing = centers.find((c) => c.stock_center_id === raw.location_id);
     if (existing) existing.quantity += qty;
     else
       centers.push({
-        stock_center_id: raw.stock_center_id,
+        stock_center_id: raw.location_id,
         stock_center_name: centerName,
         quantity: qty,
       });
@@ -119,15 +118,16 @@ async function hydrateProducts(
 
     const batches = batchesByProduct.get(raw.product_id) ?? [];
     batches.push({
-      stock_center_id: raw.stock_center_id,
+      stock_center_id: raw.location_id,
       stock_center_name: centerName,
-      batch: raw.batch,
+      batch: raw.batch_code,
       expiration_date: raw.expiration_date,
       quantity: qty,
       unit_cost: raw.unit_cost == null ? null : Number(raw.unit_cost),
     });
     batchesByProduct.set(raw.product_id, batches);
   }
+
 
   const now = Date.now();
   const stats = new Map<

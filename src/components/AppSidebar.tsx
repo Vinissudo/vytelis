@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   PackageCheck,
   Boxes,
+  Layers,
   Warehouse,
   BedDouble,
   ClipboardList,
@@ -30,7 +31,8 @@ export const navGroups = [
     label: "Suprimentos",
     items: [
       { to: "/recebimento", label: "Recebimento", icon: PackageCheck },
-      { to: "/estoque", label: "Estoque", icon: Boxes },
+      { to: "/estoque", label: "Movimentações", icon: Boxes },
+      { to: "/saldos", label: "Saldos", icon: Layers },
       { to: "/almoxarifado", label: "Almoxarifado", icon: Warehouse },
       { to: "/inventario", label: "Inventário", icon: ClipboardList },
     ],
