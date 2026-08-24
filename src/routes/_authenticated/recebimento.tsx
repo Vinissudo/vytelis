@@ -253,12 +253,20 @@ function ReceivingPage() {
   }, [canReceive, receiveMut, resetFlow]);
 
   // ---------- busca manual ----------
-  const [manualTerm, setManualTerm] = useState("");
+  const manualQuery = manualTerm.trim();
   const manualResults = useQuery({
-    queryKey: ["receiving", "search", manualTerm],
-    queryFn: () => searchFn({ data: { q: manualTerm } }),
-    enabled: tab === "manual" && manualTerm.trim().length >= 2,
+    queryKey: ["receiving", "search", manualQuery],
+    queryFn: () => searchFn({ data: { q: manualQuery } }),
+    enabled: tab === "manual" && manualQuery.length >= 2,
   });
+  const manualNotFound =
+    tab === "manual" &&
+    !product &&
+    manualQuery.length >= 2 &&
+    manualResults.isFetched &&
+    !manualResults.isFetching &&
+    (manualResults.data ?? []).length === 0;
+
 
   // ---------- XML NF-e ----------
   const [xmlDoc, setXmlDoc] = useState<ReturnType<typeof NFeParser.parse> | null>(null);
