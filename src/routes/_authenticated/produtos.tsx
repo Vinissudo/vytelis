@@ -217,6 +217,7 @@ function ProdutosPage() {
       const created = await doCreate({
         data: { ...payload, gtin: first?.gtin ?? null },
       });
+      if (!created.ok) throw new Error(created.error);
       for (const extra of gtins.slice(1)) {
         await doAddGtin({
           data: {
@@ -228,6 +229,7 @@ function ProdutosPage() {
         });
       }
       return { internal_code: created.internal_code };
+
     },
     onSuccess: (res) => {
       toast.success(
