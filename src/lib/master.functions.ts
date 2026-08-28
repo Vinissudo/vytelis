@@ -435,3 +435,287 @@ export const getImplementationStats = createServerFn({ method: "GET" })
       goal: 1500,
     };
   });
+
+/* ==========================================================================
+ * Cadastro Operacional de Produtos (tela /produtos) — cadastro puro,
+ * sem qualquer interação com o motor de estoque.
+ * ======================================================================== */
+
+const CREATE_PRODUCT_ERRORS: Record<string, string> = {
+  not_authenticated: "Sessão expirada. Faça login novamente.",
+  no_hospital: "Perfil sem hospital vinculado. Contate o administrador.",
+  forbidden: "Você não tem permissão para cadastrar produtos.",
+  invalid_description: "Informe uma descrição com pelo menos 2 caracteres.",
+  invalid_consumption_unit: "A unidade de consumo é obrigatória.",
+  invalid_package_quantity: "A quantidade por embalagem deve ser maior que zero.",
+  duplicate_gtin: "Este GTIN já está cadastrado em outro produto.",
+};
+
+const catalogProductSchema = z.object({
+  description: z.string().trim().min(2).max(500),
+  short_description: z.string().trim().max(120).optional().nullable(),
+  manufacturer: z.string().trim().max(200).optional().nullable(),
+  category_id: z.string().uuid().optional().nullable(),
+  default_supplier_id: z.string().uuid().optional().nullable(),
+  gtin: z.string().trim().max(60).optional().nullable(),
+  purchase_unit: z.string().trim().max(20).optional().nullable(),
+  consumption_unit: z.string().trim().min(1).max(20),
+  package_quantity: z.coerce.number().positive(),
+  controlled_drug: z.boolean().optional(),
+  requires_batch: z.boolean().optional(),
+  requires_expiration_date: z.boolean().optional(),
+  cold_chain: z.boolean().optional(),
+  allows_fractioning: z.boolean().optional(),
+});
+
+export const createProduct = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => catalogProductSchema.parse(input))
+  .handler(async ({ data, context }): Promise<{ id: string; internal_code: string }> => {
+    const { data: result, error } = await context.supabase.rpc("create_product", {
+      p: data as never,
+    });
+    if (error) throw new Error(CREATE_PRODUCT_ERRORS[error.message] ?? error.message);
+    return result as { id: string; internal_code: string };
+  });
+
+const updateCatalogSchema = z.object({
+  id: z.string().uuid(),
+  patch: catalogProductSchema.partial().omit({ gtin: true }),
+});
+
+export const updateCatalogProduct = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => updateCatalogSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const p = data.patch;
+    const norm = (v: string | null | undefined) =>
+      v === undefined ? undefined : v === null || v.trim() === "" ? null : v.trim();
+    const patch: Record<string, unknown> = {
+      updated_by: context.userId,
+      updated_at: new Date().toISOString(),
+    };
+    if (p.description !== undefined) patch.description = p.description.trim();
+    if (p.short_description !== undefined) patch.short_description = norm(p.short_description);
+    if (p.manufacturer !== undefined) patch.manufacturer = norm(p.manufacturer);
+    if (p.category_id !== undefined) patch.category_id = p.category_id || null;
+    if (p.default_supplier_id !== undefined)
+      patch.default_supplier_id = p.default_supplier_id || null;
+    if (p.purchase_unit !== undefined) patch.purchase_unit = norm(p.purchase_unit);
+    if (p.consumption_unit !== undefined) {
+      patch.consumption_unit = norm(p.consumption_unit);
+      patch.unit = norm(p.consumption_unit);
+    }
+    if (p.package_quantity !== undefined) patch.package_quantity = p.package_quantity;
+    if (p.controlled_drug !== undefined) patch.controlled_drug = p.controlled_drug;
+    if (p.requires_batch !== undefined) patch.requires_batch = p.requires_batch;
+    if (p.requires_expiration_date !== undefined)
+      patch.requires_expiration_date = p.requires_expiration_date;
+    if (p.cold_chain !== undefined) patch.cold_chain = p.cold_chain;
+    if (p.allows_fractioning !== undefined) patch.allows_fractioning = p.allows_fractioning;
+
+    const { error } = await context.supabase
+      .from("products")
+      .update(patch as never)
+      .eq("id", data.id)
+      .is("deleted_at", null);
+    if (error) throw new Error(error.message);
+
+    await context.supabase.from("audit_log").insert({
+      user_id: context.userId,
+      entity: "products",
+      entity_id: data.id,
+      action: "update",
+      after: patch as never,
+    });
+    return { ok: true };
+  });
+
+export interface CatalogProduct {
+  id: string;
+  internal_code: string | null;
+  description: string;
+  short_description: string | null;
+  manufacturer: string | null;
+  category_id: string | null;
+  default_supplier_id: string | null;
+  gtin: string | null;
+  barcode: string | null;
+  purchase_unit: string | null;
+  consumption_unit: string | null;
+  unit: string | null;
+  package_quantity: number;
+  controlled_drug: boolean;
+  requires_batch: boolean;
+  requires_expiration_date: boolean;
+  cold_chain: boolean;
+  allows_fractioning: boolean;
+  active: boolean;
+}
+
+const CATALOG_COLS =
+  "id, internal_code, description, short_description, manufacturer, category_id, default_supplier_id, gtin, barcode, purchase_unit, consumption_unit, unit, package_quantity, controlled_drug, requires_batch, requires_expiration_date, cold_chain, allows_fractioning, active";
+
+const catalogListSchema = z.object({
+  q: z.string().trim().max(120).optional().default(""),
+});
+
+export const listCatalogProducts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => catalogListSchema.parse(input ?? {}))
+  .handler(async ({ data, context }): Promise<CatalogProduct[]> => {
+    const term = (data.q ?? "").trim();
+    let query = context.supabase
+      .from("products")
+      .select(CATALOG_COLS)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (term) {
+      const esc = term.replace(/[%_]/g, (m) => `\\${m}`);
+      const pattern = `%${esc}%`;
+      const { data: gtinRows } = await context.supabase
+        .from("product_gtins")
+        .select("product_id")
+        .ilike("gtin", pattern)
+        .limit(50);
+      const ids = Array.from(
+        new Set(((gtinRows ?? []) as { product_id: string }[]).map((r) => r.product_id)),
+      );
+      const clauses = [
+        `internal_code.ilike.${pattern}`,
+        `description.ilike.${pattern}`,
+        `short_description.ilike.${pattern}`,
+        `manufacturer.ilike.${pattern}`,
+        `gtin.ilike.${pattern}`,
+        `barcode.ilike.${pattern}`,
+      ];
+      if (ids.length) clauses.push(`id.in.(${ids.join(",")})`);
+      query = query.or(clauses.join(","));
+    }
+
+    const { data: rows, error } = await query;
+    if (error) throw new Error(error.message);
+    return (rows ?? []) as CatalogProduct[];
+  });
+
+export interface ProductGtin {
+  id: string;
+  product_id: string;
+  gtin: string;
+  packaging_level: string;
+  quantity_per_gtin: number;
+}
+
+const productIdSchema = z.object({ product_id: z.string().uuid() });
+
+export const listProductGtins = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => productIdSchema.parse(input))
+  .handler(async ({ data, context }): Promise<ProductGtin[]> => {
+    const { data: rows, error } = await context.supabase
+      .from("product_gtins")
+      .select("id, product_id, gtin, packaging_level, quantity_per_gtin")
+      .eq("product_id", data.product_id)
+      .order("created_at", { ascending: true });
+    if (error) throw new Error(error.message);
+    return (rows ?? []) as ProductGtin[];
+  });
+
+const addGtinSchema = z.object({
+  product_id: z.string().uuid(),
+  gtin: z.string().trim().min(6).max(60),
+  packaging_level: z.string().trim().max(30).optional(),
+  quantity_per_gtin: z.coerce.number().positive().optional(),
+});
+
+export const addProductGtin = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => addGtinSchema.parse(input))
+  .handler(async ({ data, context }): Promise<ProductGtin> => {
+    const { data: prof } = await context.supabase
+      .from("profiles").select("hospital_id").eq("id", context.userId).maybeSingle();
+    const hospital_id = (prof as { hospital_id: string | null } | null)?.hospital_id;
+    if (!hospital_id) throw new Error("Perfil sem hospital vinculado.");
+
+    const { data: dupProduct } = await context.supabase
+      .from("products")
+      .select("id")
+      .is("deleted_at", null)
+      .neq("id", data.product_id)
+      .or(`gtin.eq.${data.gtin},barcode.eq.${data.gtin}`)
+      .maybeSingle();
+    if (dupProduct) throw new Error("Este GTIN já está cadastrado em outro produto.");
+
+    const { data: row, error } = await context.supabase
+      .from("product_gtins")
+      .insert({
+        hospital_id,
+        product_id: data.product_id,
+        gtin: data.gtin,
+        packaging_level: data.packaging_level?.trim() || "each",
+        quantity_per_gtin: data.quantity_per_gtin ?? 1,
+        created_by: context.userId,
+        updated_by: context.userId,
+      })
+      .select("id, product_id, gtin, packaging_level, quantity_per_gtin")
+      .single();
+    if (error) {
+      if (error.code === "23505")
+        throw new Error("Este GTIN já está cadastrado em outro produto.");
+      throw new Error(error.message);
+    }
+    return row as ProductGtin;
+  });
+
+export const removeProductGtin = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("product_gtins").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/** Aviso não bloqueante de produto semelhante (trigramas calculados no servidor). */
+export const findSimilarProducts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ description: z.string().trim().min(2).max(500) }).parse(input),
+  )
+  .handler(async ({ data, context }): Promise<{ id: string; description: string }[]> => {
+    const words = data.description
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((w) => w.length >= 3)
+      .slice(0, 3);
+    if (!words.length) return [];
+    const clauses = words.map((w) => `description.ilike.%${w.replace(/[%_]/g, "")}%`);
+    const { data: rows } = await context.supabase
+      .from("products")
+      .select("id, description")
+      .is("deleted_at", null)
+      .eq("active", true)
+      .or(clauses.join(","))
+      .limit(50);
+
+    const trigrams = (s: string) => {
+      const t = ` ${s.toLowerCase().replace(/\s+/g, " ").trim()} `;
+      const set = new Set<string>();
+      for (let i = 0; i < t.length - 2; i++) set.add(t.slice(i, i + 3));
+      return set;
+    };
+    const a = trigrams(data.description);
+    return ((rows ?? []) as { id: string; description: string }[])
+      .map((r) => {
+        const b = trigrams(r.description);
+        let inter = 0;
+        a.forEach((g) => { if (b.has(g)) inter++; });
+        return { ...r, score: inter / (a.size + b.size - inter || 1) };
+      })
+      .filter((r) => r.score > 0.6)
+      .sort((x, y) => y.score - x.score)
+      .slice(0, 3)
+      .map(({ id, description }) => ({ id, description }));
+  });
