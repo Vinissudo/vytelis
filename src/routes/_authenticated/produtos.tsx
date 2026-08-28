@@ -1,1026 +1,680 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AppShell } from "@/components/AppSidebar";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import {
-  Barcode, PackagePlus, CheckCircle2, Loader2, AlertCircle,
-  Plus, Check, ChevronsUpDown, PackageSearch, Pencil, History, Target,
-  Search as SearchIcon, ArrowLeft,
-} from "lucide-react";
+import { Package, Plus, Pencil, Eye, Search, Snowflake, ShieldAlert, X } from "lucide-react";
+
+import { AppShell } from "@/components/AppSidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Progress } from "@/components/ui/progress";
-import { cn } from "@/lib/utils";
 import {
-  lookupProductByBarcode,
-  createProductWithInitialEntry,
-  updateProduct,
-  searchProducts,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { ProductGtinsEditor, type GtinItem } from "@/components/ProductGtinsEditor";
+import {
+  listCatalogProducts,
+  createProduct,
+  updateCatalogProduct,
   listMasterRefs,
   createCategory,
-  createSupplier,
-  getProductSummary,
-  listRecentEntries,
-  getImplementationStats,
-  type ProductLookup,
-  type RefOption,
+  listProductGtins,
+  addProductGtin,
+  removeProductGtin,
+  findSimilarProducts,
+  type CatalogProduct,
 } from "@/lib/master.functions";
 
 export const Route = createFileRoute("/_authenticated/produtos")({
-  head: () => ({ meta: [{ title: "Cadastro Mestre — Vytelis Supply" }] }),
-  component: Page,
+  head: () => ({
+    meta: [
+      { title: "Produtos — Cadastro operacional | Vytelis Supply" },
+      {
+        name: "description",
+        content:
+          "Cadastro operacional de produtos hospitalares: identificação, códigos GTIN, unidades de compra e consumo e regras de controle.",
+      },
+      { property: "og:title", content: "Produtos — Cadastro operacional | Vytelis Supply" },
+      {
+        property: "og:description",
+        content:
+          "Cadastre e mantenha o catálogo de produtos do hospital, sem interferir no estoque.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
+  component: ProdutosPage,
 });
 
-type Mode = "idle" | "new" | "existing-summary" | "existing-entry" | "existing-edit";
+type Mode = "create" | "edit" | "view";
 
-interface ProductForm {
-  barcode: string;
-  internal_code: string;
+interface FormState {
   description: string;
   short_description: string;
   manufacturer: string;
-  unit: string;
   category_id: string;
   default_supplier_id: string;
+  purchase_unit: string;
+  consumption_unit: string;
+  package_quantity: string;
   controlled_drug: boolean;
   requires_batch: boolean;
   requires_expiration_date: boolean;
-  minimum_stock: string;
-  maximum_stock: string;
+  cold_chain: boolean;
+  allows_fractioning: boolean;
 }
 
-interface EntryForm {
-  stock_center_id: string;
-  batch: string;
-  expiration_date: string;
-  quantity: string;
-  unit_cost: string;
-  observation: string;
-}
+const emptyForm = (): FormState => ({
+  description: "",
+  short_description: "",
+  manufacturer: "",
+  category_id: "",
+  default_supplier_id: "",
+  purchase_unit: "",
+  consumption_unit: "",
+  package_quantity: "1",
+  controlled_drug: false,
+  requires_batch: true,
+  requires_expiration_date: true,
+  cold_chain: false,
+  allows_fractioning: false,
+});
 
-const emptyProduct: ProductForm = {
-  barcode: "", internal_code: "", description: "", short_description: "",
-  manufacturer: "", unit: "UN", category_id: "", default_supplier_id: "",
-  controlled_drug: false, requires_batch: true, requires_expiration_date: true,
-  minimum_stock: "", maximum_stock: "",
-};
-
-const emptyEntry: EntryForm = {
-  stock_center_id: "", batch: "", expiration_date: "",
-  quantity: "", unit_cost: "", observation: "",
-};
-
-function productToForm(p: ProductLookup): ProductForm {
-  return {
-    barcode: p.barcode ?? "",
-    internal_code: p.internal_code ?? "",
-    description: p.description,
-    short_description: p.short_description ?? "",
-    manufacturer: p.manufacturer ?? "",
-    unit: p.unit ?? "UN",
-    category_id: p.category_id ?? "",
-    default_supplier_id: p.default_supplier_id ?? "",
-    controlled_drug: p.controlled_drug,
-    requires_batch: p.requires_batch,
-    requires_expiration_date: p.requires_expiration_date,
-    minimum_stock: p.minimum_stock?.toString() ?? "",
-    maximum_stock: p.maximum_stock?.toString() ?? "",
-  };
-}
-
-function Page() {
-  const [barcode, setBarcode] = useState("");
-  const [mode, setMode] = useState<Mode>("idle");
-  const [existing, setExisting] = useState<ProductLookup | null>(null);
-  const [product, setProduct] = useState<ProductForm>(emptyProduct);
-  const [entry, setEntry] = useState<EntryForm>(emptyEntry);
-  const [searchResults, setSearchResults] = useState<ProductLookup[] | null>(null);
-
-  const barcodeRef = useRef<HTMLInputElement>(null);
-  const qtyRef = useRef<HTMLInputElement>(null);
-  const descRef = useRef<HTMLInputElement>(null);
-
+function ProdutosPage() {
   const qc = useQueryClient();
-  const lookup = useServerFn(lookupProductByBarcode);
-  const search = useServerFn(searchProducts);
-  const create = useServerFn(createProductWithInitialEntry);
-  const update = useServerFn(updateProduct);
-  const refs = useServerFn(listMasterRefs);
-  const summaryFn = useServerFn(getProductSummary);
-  const recentFn = useServerFn(listRecentEntries);
-  const statsFn = useServerFn(getImplementationStats);
+  const [term, setTerm] = useState("");
+  const [debounced, setDebounced] = useState("");
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<Mode>("create");
+  const [editing, setEditing] = useState<CatalogProduct | null>(null);
+  const [form, setForm] = useState<FormState>(emptyForm());
+  const [gtins, setGtins] = useState<GtinItem[]>([]);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [similar, setSimilar] = useState<{ id: string; description: string }[]>([]);
+  const [similarAck, setSimilarAck] = useState(false);
 
-  const refsQuery = useQuery({
-    queryKey: ["master-refs"],
-    queryFn: () => refs(),
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const recentQuery = useQuery({
-    queryKey: ["master-recent"],
-    queryFn: () => recentFn(),
-    staleTime: 30_000,
-  });
-
-  const statsQuery = useQuery({
-    queryKey: ["master-stats"],
-    queryFn: () => statsFn(),
-    staleTime: 30_000,
-  });
-
-  const summaryQuery = useQuery({
-    queryKey: ["product-summary", existing?.id],
-    queryFn: () => summaryFn({ data: { product_id: existing!.id } }),
-    enabled: !!existing?.id,
-    staleTime: 15_000,
-  });
-
-  useEffect(() => { barcodeRef.current?.focus(); }, []);
+  const fetchList = useServerFn(listCatalogProducts);
+  const fetchRefs = useServerFn(listMasterRefs);
+  const fetchGtins = useServerFn(listProductGtins);
+  const doCreate = useServerFn(createProduct);
+  const doUpdate = useServerFn(updateCatalogProduct);
+  const doAddGtin = useServerFn(addProductGtin);
+  const doRemoveGtin = useServerFn(removeProductGtin);
+  const doCreateCategory = useServerFn(createCategory);
+  const doFindSimilar = useServerFn(findSimilarProducts);
 
   useEffect(() => {
-    if (refsQuery.data?.stockCenters.length && !entry.stock_center_id) {
-      setEntry((e) => ({ ...e, stock_center_id: refsQuery.data!.stockCenters[0].id }));
-    }
-  }, [refsQuery.data, entry.stock_center_id]);
+    const id = window.setTimeout(() => setDebounced(term.trim()), 250);
+    return () => window.clearTimeout(id);
+  }, [term]);
 
-  const centers = refsQuery.data?.stockCenters ?? [];
-  const cats = refsQuery.data?.categories ?? [];
-  const sups = refsQuery.data?.suppliers ?? [];
-  const mans = refsQuery.data?.manufacturers ?? [];
-  const units = refsQuery.data?.units ?? [];
+  const listQuery = useQuery({
+    queryKey: ["catalog-products", debounced],
+    queryFn: () => fetchList({ data: { q: debounced } }),
+  });
+
+  const refsQuery = useQuery({ queryKey: ["master-refs"], queryFn: () => fetchRefs({}) });
+  const refs = refsQuery.data;
 
   const categoryName = useCallback(
-    (id: string | null | undefined) => (id ? cats.find((c) => c.id === id)?.name ?? "—" : "—"),
-    [cats],
-  );
-  const supplierName = useCallback(
-    (id: string | null | undefined) => (id ? sups.find((s) => s.id === id)?.name ?? "—" : "—"),
-    [sups],
+    (id: string | null) => refs?.categories.find((c) => c.id === id)?.name ?? "—",
+    [refs],
   );
 
-  const openExisting = useCallback((row: ProductLookup) => {
-    setExisting(row);
-    setBarcode(row.barcode ?? row.internal_code ?? row.description);
-    setSearchResults(null);
-    setMode("existing-summary");
-  }, []);
+  const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
+    setForm((f) => ({ ...f, [key]: value }));
 
-  const lookupMut = useMutation({
-    mutationFn: async (code: string): Promise<
-      { kind: "hit"; row: ProductLookup } | { kind: "many"; rows: ProductLookup[] } | { kind: "none"; code: string }
-    > => {
-      const direct = await lookup({ data: { barcode: code } });
-      if (direct) return { kind: "hit", row: direct };
-      const many = await search({ data: { q: code } });
-      if (many.length === 1) return { kind: "hit", row: many[0] };
-      if (many.length > 1) return { kind: "many", rows: many };
-      return { kind: "none", code };
+  const openCreate = () => {
+    setMode("create");
+    setEditing(null);
+    setForm(emptyForm());
+    setGtins([]);
+    setErrors([]);
+    setSimilar([]);
+    setSimilarAck(false);
+    setOpen(true);
+  };
+
+  const openProduct = async (row: CatalogProduct, m: Mode) => {
+    setMode(m);
+    setEditing(row);
+    setErrors([]);
+    setSimilar([]);
+    setSimilarAck(true);
+    setForm({
+      description: row.description,
+      short_description: row.short_description ?? "",
+      manufacturer: row.manufacturer ?? "",
+      category_id: row.category_id ?? "",
+      default_supplier_id: row.default_supplier_id ?? "",
+      purchase_unit: row.purchase_unit ?? "",
+      consumption_unit: row.consumption_unit ?? row.unit ?? "",
+      package_quantity: String(row.package_quantity ?? 1),
+      controlled_drug: row.controlled_drug,
+      requires_batch: row.requires_batch,
+      requires_expiration_date: row.requires_expiration_date,
+      cold_chain: row.cold_chain,
+      allows_fractioning: row.allows_fractioning,
+    });
+    setGtins([]);
+    setOpen(true);
+    try {
+      const rows = await fetchGtins({ data: { product_id: row.id } });
+      setGtins(
+        rows.map((r) => ({
+          id: r.id,
+          gtin: r.gtin,
+          packaging_level: r.packaging_level,
+          quantity_per_gtin: Number(r.quantity_per_gtin),
+        })),
+      );
+    } catch {
+      /* silencioso: GTINs opcionais */
+    }
+  };
+
+  const validate = (): string[] => {
+    const e: string[] = [];
+    if (form.description.trim().length < 2) e.push("Informe a descrição do produto (mín. 2 caracteres).");
+    if (!form.consumption_unit.trim()) e.push("A unidade de consumo é obrigatória.");
+    const pkg = Number(form.package_quantity.replace(",", "."));
+    if (!Number.isFinite(pkg) || pkg <= 0) e.push("A quantidade por embalagem deve ser maior que zero.");
+    return e;
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const pkg = Number(form.package_quantity.replace(",", "."));
+      const payload = {
+        description: form.description.trim(),
+        short_description: form.short_description.trim() || null,
+        manufacturer: form.manufacturer.trim() || null,
+        category_id: form.category_id || null,
+        default_supplier_id: form.default_supplier_id || null,
+        purchase_unit: form.purchase_unit.trim() || null,
+        consumption_unit: form.consumption_unit.trim(),
+        package_quantity: pkg,
+        controlled_drug: form.controlled_drug,
+        requires_batch: form.requires_batch,
+        requires_expiration_date: form.requires_expiration_date,
+        cold_chain: form.cold_chain,
+        allows_fractioning: form.allows_fractioning,
+      };
+
+      if (mode === "edit" && editing) {
+        await doUpdate({ data: { id: editing.id, patch: payload } });
+        return { internal_code: editing.internal_code ?? "" };
+      }
+
+      const first = gtins[0];
+      const created = await doCreate({
+        data: { ...payload, gtin: first?.gtin ?? null },
+      });
+      for (const extra of gtins.slice(1)) {
+        await doAddGtin({
+          data: {
+            product_id: created.id,
+            gtin: extra.gtin,
+            packaging_level: extra.packaging_level,
+            quantity_per_gtin: extra.quantity_per_gtin,
+          },
+        });
+      }
+      return { internal_code: created.internal_code };
     },
     onSuccess: (res) => {
-      if (res.kind === "hit") {
-        openExisting(res.row);
-      } else if (res.kind === "many") {
-        setSearchResults(res.rows);
-        setMode("idle");
-      } else {
-        setExisting(null);
-        setSearchResults(null);
-        setProduct({ ...emptyProduct, barcode: res.code });
-        setMode("new");
-        setTimeout(() => descRef.current?.focus(), 30);
-      }
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const isEntryMode = mode === "new" || mode === "existing-entry";
-  const isEditMode = mode === "existing-edit";
-  const requiresBatch = mode === "existing-entry" ? !!existing?.requires_batch : product.requires_batch;
-  const requiresExpiration =
-    mode === "existing-entry" ? !!existing?.requires_expiration_date : product.requires_expiration_date;
-
-  const validation = useMemo(() => {
-    const errs: string[] = [];
-    if (isEditMode) {
-      if (product.description.trim().length < 2) errs.push("Informe a descrição do produto.");
-      return errs;
-    }
-    if (!isEntryMode) return errs;
-    if (!entry.stock_center_id) errs.push("Selecione o local de estoque.");
-    const qty = Number(entry.quantity);
-    if (!entry.quantity || Number.isNaN(qty) || qty <= 0) errs.push("Quantidade deve ser maior que zero.");
-    if (entry.unit_cost && Number(entry.unit_cost) < 0) errs.push("Custo não pode ser negativo.");
-    if (mode === "new" && product.description.trim().length < 2)
-      errs.push("Informe a descrição do produto.");
-    if (requiresBatch && !entry.batch.trim()) errs.push("Lote é obrigatório para este produto.");
-    if (requiresExpiration && !entry.expiration_date) errs.push("Validade é obrigatória para este produto.");
-    if (entry.expiration_date && entry.expiration_date < new Date().toISOString().slice(0, 10))
-      errs.push("Validade não pode ser anterior a hoje.");
-    return errs;
-  }, [isEditMode, isEntryMode, mode, product, entry, requiresBatch, requiresExpiration]);
-
-  const canSubmit = validation.length === 0 && (isEntryMode || isEditMode);
-
-  const reset = useCallback(() => {
-    setBarcode("");
-    setExisting(null);
-    setSearchResults(null);
-    setProduct(emptyProduct);
-    setEntry({ ...emptyEntry, stock_center_id: refsQuery.data?.stockCenters[0]?.id ?? "" });
-    setMode("idle");
-    setTimeout(() => barcodeRef.current?.focus(), 30);
-  }, [refsQuery.data?.stockCenters]);
-
-  const createMut = useMutation({
-    mutationFn: async () => {
-      const productPayload =
-        mode === "existing-entry" && existing
-          ? { id: existing.id }
-          : {
-              barcode: product.barcode || undefined,
-              internal_code: product.internal_code || undefined,
-              description: product.description,
-              short_description: product.short_description || undefined,
-              manufacturer: product.manufacturer || undefined,
-              unit: product.unit || undefined,
-              category_id: product.category_id || undefined,
-              default_supplier_id: product.default_supplier_id || undefined,
-              controlled_drug: product.controlled_drug,
-              requires_batch: product.requires_batch,
-              requires_expiration_date: product.requires_expiration_date,
-              minimum_stock: product.minimum_stock || undefined,
-              maximum_stock: product.maximum_stock || undefined,
-            };
-      return create({
-        data: {
-          product: productPayload,
-          entry: {
-            stock_center_id: entry.stock_center_id || undefined,
-            batch: entry.batch || undefined,
-            expiration_date: entry.expiration_date || undefined,
-            quantity: entry.quantity,
-            unit_cost: entry.unit_cost || undefined,
-            observation: entry.observation || undefined,
-          },
-        },
-      });
-    },
-    onSuccess: () => {
-      const isNew = mode === "new";
       toast.success(
-        isNew ? "Cadastro concluído com sucesso" : "Entrada de estoque registrada",
-        {
-          icon: <CheckCircle2 className="size-4" />,
-          duration: 4500,
-          description: (
-            <div className="text-xs space-y-0.5">
-              {isNew && <div>✔ Produto criado</div>}
-              <div>✔ Lote {entry.batch ? `"${entry.batch}"` : "inicial"} registrado</div>
-              <div>✔ Estoque atualizado (+{entry.quantity})</div>
-              <div>✔ Movimento de inventário gerado</div>
-              <div>✔ Auditoria registrada</div>
-            </div>
-          ),
-        },
+        mode === "edit"
+          ? "Produto atualizado."
+          : `Produto cadastrado — código interno ${res.internal_code}.`,
       );
-      reset();
-      qc.invalidateQueries({ queryKey: ["master-recent"] });
-      qc.invalidateQueries({ queryKey: ["master-stats"] });
-      qc.invalidateQueries({ queryKey: ["master-refs"] });
-      qc.invalidateQueries({ queryKey: ["products"] });
-      qc.invalidateQueries({ queryKey: ["stock"] });
+      void qc.invalidateQueries({ queryKey: ["catalog-products"] });
+      setOpen(false);
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "Não foi possível salvar o produto.");
+    },
   });
 
-  const updateMut = useMutation({
-    mutationFn: async () => {
-      if (!existing) throw new Error("Produto não selecionado.");
-      return update({
+  const handleSubmit = async () => {
+    const e = validate();
+    setErrors(e);
+    if (e.length) return;
+
+    if (mode === "create" && !similarAck) {
+      try {
+        const found = await doFindSimilar({ data: { description: form.description.trim() } });
+        if (found.length) {
+          setSimilar(found);
+          setSimilarAck(true);
+          return;
+        }
+      } catch {
+        /* aviso é opcional */
+      }
+      setSimilarAck(true);
+    }
+    saveMutation.mutate();
+  };
+
+  const handleAddGtin = async (item: GtinItem) => {
+    if (mode === "edit" && editing) {
+      const row = await doAddGtin({
         data: {
-          id: existing.id,
-          patch: {
-            barcode: product.barcode || null,
-            internal_code: product.internal_code || null,
-            description: product.description,
-            short_description: product.short_description || null,
-            manufacturer: product.manufacturer || null,
-            unit: product.unit || null,
-            category_id: product.category_id || null,
-            default_supplier_id: product.default_supplier_id || null,
-            controlled_drug: product.controlled_drug,
-            requires_batch: product.requires_batch,
-            requires_expiration_date: product.requires_expiration_date,
-            minimum_stock: product.minimum_stock,
-            maximum_stock: product.maximum_stock,
-          },
+          product_id: editing.id,
+          gtin: item.gtin,
+          packaging_level: item.packaging_level,
+          quantity_per_gtin: item.quantity_per_gtin,
         },
       });
-    },
-    onSuccess: (row) => {
-      toast.success("Produto atualizado", {
-        icon: <CheckCircle2 className="size-4" />,
-        description: <div className="text-xs">✔ Alterações salvas · ✔ Auditoria registrada</div>,
-      });
-      setExisting(row);
-      setMode("existing-summary");
-      qc.invalidateQueries({ queryKey: ["master-refs"] });
-      qc.invalidateQueries({ queryKey: ["product-summary", row.id] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const submitMut = isEditMode ? updateMut : createMut;
-
-  const submit = useCallback(() => {
-    if (!canSubmit || submitMut.isPending) return;
-    submitMut.mutate();
-  }, [canSubmit, submitMut]);
-
-  const startEntryFromExisting = useCallback(() => {
-    setEntry((e) => ({
-      ...e,
-      batch: "", expiration_date: "", quantity: "", unit_cost: "", observation: "",
-      stock_center_id: e.stock_center_id || refsQuery.data?.stockCenters[0]?.id || "",
-    }));
-    setMode("existing-entry");
-    setTimeout(() => qtyRef.current?.focus(), 30);
-  }, [refsQuery.data?.stockCenters]);
-
-  const startEditFromExisting = useCallback(() => {
-    if (!existing) return;
-    setProduct(productToForm(existing));
-    setMode("existing-edit");
-    setTimeout(() => descRef.current?.focus(), 30);
-  }, [existing]);
-
-  const onBarcodeKey = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        const code = barcode.trim();
-        if (!code || lookupMut.isPending) return;
-        lookupMut.mutate(code);
-      }
-    },
-    [barcode, lookupMut],
-  );
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && (isEntryMode || isEditMode)) {
-        e.preventDefault();
-        submit();
-      } else if (e.key === "Escape" && mode !== "idle") {
-        e.preventDefault();
-        reset();
-      }
+      setGtins((g) => [...g, { ...item, id: row.id }]);
+      return;
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [mode, isEntryMode, isEditMode, submit, reset]);
+    setGtins((g) => [...g, item]);
+  };
 
-  const onFormKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLFormElement>) => {
-      const target = e.target as HTMLElement;
-      if (e.key === "Enter" && target.tagName === "INPUT" && (target as HTMLInputElement).type !== "textarea") {
-        e.preventDefault();
-        submit();
-      }
-    },
-    [submit],
-  );
+  const handleRemoveGtin = async (item: GtinItem, index: number) => {
+    if (item.id) await doRemoveGtin({ data: { id: item.id } });
+    setGtins((g) => g.filter((_, i) => i !== index));
+  };
 
-  const openRecent = useCallback(
-    async (product_id: string) => {
-      try {
-        const rows = await search({ data: { q: product_id } });
-        // fallback: search by product id doesn't work — use direct getById via lookup
-        const found = rows.find((r) => r.id === product_id);
-        if (found) return openExisting(found);
-      } catch { /* ignore */ }
-      // fallback direct fetch via barcode? Use lookup with description as best-effort
-      // If no barcode we can't lookup; skip
-    },
-    [search, openExisting],
-  );
+  const addCategory = async () => {
+    const name = window.prompt("Nome da nova categoria");
+    if (!name || name.trim().length < 2) return;
+    try {
+      const cat = await doCreateCategory({ data: { name: name.trim() } });
+      await qc.invalidateQueries({ queryKey: ["master-refs"] });
+      set("category_id", cat.id);
+      toast.success("Categoria criada.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao criar categoria.");
+    }
+  };
+
+  const rows = listQuery.data ?? [];
+  const readOnly = mode === "view";
+
+  const conversionHint = useMemo(() => {
+    const pkg = Number(form.package_quantity.replace(",", "."));
+    if (!Number.isFinite(pkg) || pkg <= 0 || !form.consumption_unit.trim()) return null;
+    const pu = form.purchase_unit.trim() || "embalagem";
+    return `1 ${pu} = ${pkg} ${form.consumption_unit.trim()}`;
+  }, [form.package_quantity, form.purchase_unit, form.consumption_unit]);
 
   return (
-    <AppShell title="Cadastro Mestre">
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 max-w-7xl">
-        <form
-          onSubmit={(e) => { e.preventDefault(); submit(); }}
-          onKeyDown={onFormKeyDown}
-          className="space-y-6 xl:col-span-2"
-        >
+    <AppShell title="Produtos">
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
           <div>
-            <h2 className="text-2xl font-semibold tracking-tight">Cadastro Mestre</h2>
+            <h2 className="text-2xl font-semibold tracking-tight">Produtos</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Escaneie o código de barras, digite parte da descrição ou o código interno para localizar o produto.
-              Se não existir, o formulário completo é aberto automaticamente.{" "}
-              <span className="text-xs">
-                Atalhos: <kbd className="px-1 py-0.5 rounded bg-muted">Enter</kbd> confirma,{" "}
-                <kbd className="px-1 py-0.5 rounded bg-muted">Ctrl+Enter</kbd> salva,{" "}
-                <kbd className="px-1 py-0.5 rounded bg-muted">Esc</kbd> cancela.
-              </span>
+              Cadastro operacional do catálogo. Não movimenta estoque.
             </p>
           </div>
+          <Button onClick={openCreate} className="gap-2">
+            <Plus className="size-4" /> Novo produto
+          </Button>
+        </div>
 
-          {/* Barcode / search input */}
-          <div className="bg-card border border-border rounded-lg p-5">
-            <Label htmlFor="barcode" className="text-xs uppercase tracking-wider text-muted-foreground">
-              Código de barras · código interno · descrição
-            </Label>
-            <div className="mt-2 flex gap-2">
-              <div className="relative flex-1">
-                <Barcode className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="barcode"
-                  ref={barcodeRef}
-                  value={barcode}
-                  onChange={(e) => setBarcode(e.target.value)}
-                  onKeyDown={onBarcodeKey}
-                  placeholder="Escaneie ou digite e pressione Enter..."
-                  className="pl-9 h-11 text-base font-mono"
-                  autoComplete="off"
-                  spellCheck={false}
-                  disabled={lookupMut.isPending || submitMut.isPending}
+        <div className="bg-card border border-border rounded-lg overflow-hidden">
+          <div className="px-4 py-3 border-b border-border flex items-center gap-3">
+            <div className="relative flex-1 max-w-md">
+              <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={term}
+                onChange={(e) => setTerm(e.target.value)}
+                placeholder="Buscar por código, descrição, fabricante ou GTIN..."
+                className="pl-9 h-9"
+              />
+            </div>
+            <span className="text-xs text-muted-foreground ml-auto">
+              {listQuery.isFetching ? "Buscando..." : `${rows.length} produto(s)`}
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40">
+                <tr className="text-left">
+                  {["Código", "Produto", "Categoria", "Fabricante", "Un. consumo", "GTIN", "Status"].map(
+                    (h) => (
+                      <th
+                        key={h}
+                        className="px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                      >
+                        {h}
+                      </th>
+                    ),
+                  )}
+                  <th className="px-4 py-2.5 w-24" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-12 text-center text-sm text-muted-foreground">
+                      {listQuery.isLoading ? "Carregando..." : "Nenhum produto encontrado."}
+                    </td>
+                  </tr>
+                ) : (
+                  rows.map((row) => (
+                    <tr key={row.id} className="hover:bg-muted/30">
+                      <td className="px-4 py-3 font-mono text-xs">{row.internal_code ?? "—"}</td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium flex items-center gap-1.5">
+                          {row.description}
+                          {row.controlled_drug && (
+                            <ShieldAlert className="size-3.5 text-amber-600" aria-label="Controlado" />
+                          )}
+                          {row.cold_chain && (
+                            <Snowflake className="size-3.5 text-sky-600" aria-label="Cadeia fria" />
+                          )}
+                        </div>
+                        {row.short_description && (
+                          <div className="text-xs text-muted-foreground">{row.short_description}</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">{categoryName(row.category_id)}</td>
+                      <td className="px-4 py-3">{row.manufacturer ?? "—"}</td>
+                      <td className="px-4 py-3">{row.consumption_unit ?? row.unit ?? "—"}</td>
+                      <td className="px-4 py-3 font-mono text-xs">{row.gtin ?? row.barcode ?? "—"}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full ${
+                            row.active
+                              ? "bg-emerald-50 text-emerald-700"
+                              : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {row.active ? "Ativo" : "Inativo"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex justify-end gap-1">
+                          <button
+                            onClick={() => void openProduct(row, "view")}
+                            className="size-8 grid place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                            aria-label="Visualizar"
+                          >
+                            <Eye className="size-4" />
+                          </button>
+                          <button
+                            onClick={() => void openProduct(row, "edit")}
+                            className="size-8 grid place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                            aria-label="Editar"
+                          >
+                            <Pencil className="size-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="size-4" />
+              {mode === "create"
+                ? "Novo produto"
+                : mode === "edit"
+                  ? "Editar produto"
+                  : "Detalhes do produto"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            <Block title="Identificação">
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2 space-y-1.5">
+                  <Label>Descrição *</Label>
+                  <Input
+                    value={form.description}
+                    disabled={readOnly}
+                    onChange={(e) => set("description", e.target.value)}
+                    placeholder="Ex.: Dipirona sódica 500mg comprimido"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Descrição curta</Label>
+                  <Input
+                    value={form.short_description}
+                    disabled={readOnly}
+                    onChange={(e) => set("short_description", e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Código interno</Label>
+                  <Input
+                    value={editing?.internal_code ?? "Gerado automaticamente ao salvar"}
+                    readOnly
+                    className="bg-muted/50 font-mono text-xs"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Categoria</Label>
+                  <div className="flex gap-2">
+                    <select
+                      value={form.category_id}
+                      disabled={readOnly}
+                      onChange={(e) => set("category_id", e.target.value)}
+                      className="h-9 flex-1 rounded-md border border-input bg-background px-2 text-sm"
+                    >
+                      <option value="">Sem categoria</option>
+                      {(refs?.categories ?? []).map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                    {!readOnly && (
+                      <Button type="button" variant="outline" size="sm" onClick={() => void addCategory()}>
+                        <Plus className="size-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Fabricante</Label>
+                  <Input
+                    value={form.manufacturer}
+                    disabled={readOnly}
+                    list="fabricantes"
+                    onChange={(e) => set("manufacturer", e.target.value)}
+                  />
+                  <datalist id="fabricantes">
+                    {(refs?.manufacturers ?? []).map((m) => (
+                      <option key={m} value={m} />
+                    ))}
+                  </datalist>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Fornecedor padrão</Label>
+                  <select
+                    value={form.default_supplier_id}
+                    disabled={readOnly}
+                    onChange={(e) => set("default_supplier_id", e.target.value)}
+                    className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  >
+                    <option value="">Nenhum</option>
+                    {(refs?.suppliers ?? []).map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </Block>
+
+            <Block title="Códigos (GTIN)">
+              <ProductGtinsEditor
+                items={gtins}
+                onAdd={handleAddGtin}
+                onRemove={handleRemoveGtin}
+                disabled={readOnly}
+              />
+            </Block>
+
+            <Block title="Unidades">
+              <div className="grid sm:grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Unidade de compra</Label>
+                  <Input
+                    value={form.purchase_unit}
+                    disabled={readOnly}
+                    list="unidades"
+                    onChange={(e) => set("purchase_unit", e.target.value.toUpperCase())}
+                    placeholder="CX"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Unidade de consumo *</Label>
+                  <Input
+                    value={form.consumption_unit}
+                    disabled={readOnly}
+                    list="unidades"
+                    onChange={(e) => set("consumption_unit", e.target.value.toUpperCase())}
+                    placeholder="COMPRIMIDO"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Qtd. por embalagem *</Label>
+                  <Input
+                    value={form.package_quantity}
+                    disabled={readOnly}
+                    onChange={(e) => set("package_quantity", e.target.value)}
+                  />
+                </div>
+                <datalist id="unidades">
+                  {(refs?.units ?? []).map((u) => (
+                    <option key={u} value={u} />
+                  ))}
+                </datalist>
+              </div>
+              {conversionHint && (
+                <p className="text-xs text-muted-foreground mt-2">{conversionHint}</p>
+              )}
+            </Block>
+
+            <Block title="Regras">
+              <div className="grid sm:grid-cols-2 gap-3">
+                <Toggle
+                  label="Medicamento controlado"
+                  checked={form.controlled_drug}
+                  disabled={readOnly}
+                  onChange={(v) => set("controlled_drug", v)}
+                />
+                <Toggle
+                  label="Exige lote"
+                  checked={form.requires_batch}
+                  disabled={readOnly}
+                  onChange={(v) => set("requires_batch", v)}
+                />
+                <Toggle
+                  label="Exige validade"
+                  checked={form.requires_expiration_date}
+                  disabled={readOnly}
+                  onChange={(v) => set("requires_expiration_date", v)}
+                />
+                <Toggle
+                  label="Cadeia fria"
+                  checked={form.cold_chain}
+                  disabled={readOnly}
+                  onChange={(v) => set("cold_chain", v)}
+                />
+                <Toggle
+                  label="Permite fracionamento"
+                  checked={form.allows_fractioning}
+                  disabled={readOnly}
+                  onChange={(v) => set("allows_fractioning", v)}
                 />
               </div>
-              {mode !== "idle" && (
-                <Button variant="outline" onClick={reset} type="button" disabled={submitMut.isPending}>
-                  Limpar
-                </Button>
-              )}
-            </div>
-            {lookupMut.isPending && (
-              <p className="mt-2 text-xs text-muted-foreground flex items-center gap-1.5">
-                <Loader2 className="size-3 animate-spin" /> Consultando...
-              </p>
+            </Block>
+
+            {errors.length > 0 && (
+              <ul className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive space-y-1">
+                {errors.map((e) => (
+                  <li key={e}>{e}</li>
+                ))}
+              </ul>
+            )}
+
+            {similar.length > 0 && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+                <div className="flex items-start gap-2">
+                  <div className="flex-1">
+                    {similar.map((s) => (
+                      <p key={s.id}>Já existe produto semelhante: {s.description}.</p>
+                    ))}
+                    <p className="mt-1">
+                      Deseja revisar antes de cadastrar? Clique em Salvar novamente para continuar
+                      mesmo assim.
+                    </p>
+                  </div>
+                  <button onClick={() => setSimilar([])} aria-label="Fechar aviso">
+                    <X className="size-4" />
+                  </button>
+                </div>
+              </div>
             )}
           </div>
 
-          {/* Multi-result picker */}
-          {searchResults && searchResults.length > 0 && mode === "idle" && (
-            <div className="bg-card border border-border rounded-lg p-4">
-              <div className="flex items-center gap-2 text-sm font-medium mb-3">
-                <SearchIcon className="size-4 text-primary" />
-                {searchResults.length} produtos encontrados — selecione um
-              </div>
-              <ul className="divide-y divide-border -mx-2">
-                {searchResults.map((r) => (
-                  <li key={r.id}>
-                    <button
-                      type="button"
-                      onClick={() => openExisting(r)}
-                      className="w-full text-left px-2 py-2.5 hover:bg-muted/40 rounded"
-                    >
-                      <div className="text-sm font-medium">{r.description}</div>
-                      <div className="text-[11px] text-muted-foreground flex gap-2 flex-wrap mt-0.5">
-                        {r.barcode && <span className="font-mono">{r.barcode}</span>}
-                        {r.internal_code && <span>Cód. {r.internal_code}</span>}
-                        {r.manufacturer && <span>{r.manufacturer}</span>}
-                        <span>{categoryName(r.category_id)}</span>
-                      </div>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Existing product — compact summary */}
-          {mode === "existing-summary" && existing && (
-            <div className="bg-card border border-border rounded-lg p-5">
-              <div className="flex items-start gap-3">
-                <PackageSearch className="size-5 text-primary mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                    Produto encontrado
-                  </div>
-                  <div className="text-lg font-medium mt-0.5">{existing.description}</div>
-                  <div className="text-xs text-muted-foreground mt-1 flex gap-3 flex-wrap">
-                    {existing.barcode && <span className="font-mono">{existing.barcode}</span>}
-                    {existing.internal_code && <span>Cód. {existing.internal_code}</span>}
-                    {existing.controlled_drug && <span className="text-red-600 font-medium">Controlado</span>}
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-                    <Stat label="Categoria" value={categoryName(existing.category_id)} />
-                    <Stat label="Fabricante" value={existing.manufacturer ?? "—"} />
-                    <Stat label="Fornecedor" value={supplierName(existing.default_supplier_id)} />
-                    <Stat label="Unidade" value={existing.unit ?? "—"} />
-                    <Stat label="Estoque atual" value={
-                      summaryQuery.isLoading ? "—" : `${summaryQuery.data?.current_stock ?? 0}`
-                    } />
-                    <Stat label="Último lote" value={summaryQuery.data?.last_batch ?? "—"} mono />
-                    <Stat label="Validade" value={
-                      summaryQuery.data?.last_expiration
-                        ? formatDate(summaryQuery.data.last_expiration)
-                        : "—"
-                    } />
-                    <Stat label="Última entrada" value={
-                      summaryQuery.data?.last_entry_at
-                        ? formatDateTime(summaryQuery.data.last_entry_at)
-                        : "—"
-                    } />
-                  </div>
-
-                  <div className="flex gap-2 mt-4">
-                    <Button type="button" onClick={startEntryFromExisting} autoFocus>
-                      <PackagePlus className="size-4 mr-1.5" /> Nova entrada de estoque
-                    </Button>
-                    <Button type="button" variant="outline" onClick={startEditFromExisting}>
-                      <Pencil className="size-4 mr-1.5" /> Editar produto
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Product form (new or edit) */}
-          {(mode === "new" || isEditMode) && (
-            <div className="bg-card border border-border rounded-lg p-5 space-y-4">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                {isEditMode ? (
-                  <><Pencil className="size-4 text-primary" /> Editar produto</>
-                ) : (
-                  <><PackagePlus className="size-4 text-primary" /> Novo produto</>
-                )}
-                {isEditMode && (
-                  <Button
-                    type="button" variant="ghost" size="sm" className="ml-auto h-7"
-                    onClick={() => setMode("existing-summary")}
-                  >
-                    <ArrowLeft className="size-3.5 mr-1" /> Voltar
-                  </Button>
-                )}
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Field label="Descrição" required error={product.description.trim().length < 2 && product.description.length > 0 ? "Mínimo 2 caracteres" : undefined}>
-                  <Input
-                    ref={descRef}
-                    value={product.description}
-                    onChange={(e) => setProduct({ ...product, description: e.target.value })}
-                    placeholder="Ex.: Dipirona 500mg comprimido"
-                    maxLength={500}
-                    required
-                  />
-                </Field>
-                <Field label="Descrição curta">
-                  <Input
-                    value={product.short_description}
-                    onChange={(e) => setProduct({ ...product, short_description: e.target.value })}
-                    placeholder="Dipirona 500mg"
-                    maxLength={120}
-                  />
-                </Field>
-                <Field label="Código interno">
-                  <Input
-                    value={product.internal_code}
-                    onChange={(e) => setProduct({ ...product, internal_code: e.target.value })}
-                    maxLength={60}
-                  />
-                </Field>
-                <Field label="Código de barras">
-                  <Input
-                    value={product.barcode}
-                    onChange={(e) => setProduct({ ...product, barcode: e.target.value })}
-                    className="font-mono"
-                    maxLength={120}
-                  />
-                </Field>
-                <Field label="Fabricante">
-                  <FreeCombobox
-                    value={product.manufacturer}
-                    options={mans}
-                    placeholder="Selecione ou digite..."
-                    onChange={(v) => setProduct({ ...product, manufacturer: v })}
-                  />
-                </Field>
-                <Field label="Unidade">
-                  <FreeCombobox
-                    value={product.unit}
-                    options={units}
-                    placeholder="UN, CX, FR..."
-                    onChange={(v) => setProduct({ ...product, unit: v })}
-                  />
-                </Field>
-                <Field label="Categoria">
-                  <RefCombobox
-                    value={product.category_id}
-                    options={cats}
-                    placeholder="Selecione ou crie..."
-                    createLabel="Criar categoria"
-                    onChange={(id) => setProduct({ ...product, category_id: id })}
-                    createFn={createCategory}
-                    invalidateKey={["master-refs"]}
-                    optionsKey="categories"
-                  />
-                </Field>
-                <Field label="Fornecedor padrão">
-                  <RefCombobox
-                    value={product.default_supplier_id}
-                    options={sups}
-                    placeholder="Selecione ou crie..."
-                    createLabel="Criar fornecedor"
-                    onChange={(id) => setProduct({ ...product, default_supplier_id: id })}
-                    createFn={createSupplier}
-                    invalidateKey={["master-refs"]}
-                    optionsKey="suppliers"
-                  />
-                </Field>
-                <Field label="Estoque mínimo">
-                  <Input
-                    type="number" inputMode="decimal" min="0" step="0.001"
-                    value={product.minimum_stock}
-                    onChange={(e) => setProduct({ ...product, minimum_stock: e.target.value })}
-                  />
-                </Field>
-                <Field label="Estoque máximo">
-                  <Input
-                    type="number" inputMode="decimal" min="0" step="0.001"
-                    value={product.maximum_stock}
-                    onChange={(e) => setProduct({ ...product, maximum_stock: e.target.value })}
-                  />
-                </Field>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-border">
-                <ToggleRow label="Controlado" checked={product.controlled_drug}
-                  onChange={(v) => setProduct({ ...product, controlled_drug: v })} />
-                <ToggleRow label="Exige lote" checked={product.requires_batch}
-                  onChange={(v) => setProduct({ ...product, requires_batch: v })} />
-                <ToggleRow label="Exige validade" checked={product.requires_expiration_date}
-                  onChange={(v) => setProduct({ ...product, requires_expiration_date: v })} />
-              </div>
-            </div>
-          )}
-
-          {isEntryMode && (
-            <div className="bg-card border border-border rounded-lg p-5 space-y-4">
-              <div className="text-sm font-medium">
-                {mode === "existing-entry" ? "Nova entrada de estoque" : "Entrada inicial no estoque"}
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Field label="Local de estoque" required>
-                  <Select
-                    value={entry.stock_center_id || undefined}
-                    onValueChange={(v) => setEntry({ ...entry, stock_center_id: v })}
-                  >
-                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                    <SelectContent>
-                      {centers.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Quantidade" required>
-                  <Input
-                    ref={qtyRef}
-                    type="number" inputMode="decimal" min="0" step="0.001"
-                    value={entry.quantity}
-                    onChange={(e) => setEntry({ ...entry, quantity: e.target.value })}
-                    required
-                  />
-                </Field>
-                <Field label="Custo unitário">
-                  <Input
-                    type="number" inputMode="decimal" min="0" step="0.0001"
-                    value={entry.unit_cost}
-                    onChange={(e) => setEntry({ ...entry, unit_cost: e.target.value })}
-                  />
-                </Field>
-                <Field label="Lote" required={requiresBatch}>
-                  <Input
-                    value={entry.batch}
-                    onChange={(e) => setEntry({ ...entry, batch: e.target.value })}
-                    maxLength={60}
-                    required={requiresBatch}
-                  />
-                </Field>
-                <Field label="Validade" required={requiresExpiration}>
-                  <Input
-                    type="date"
-                    min={new Date().toISOString().slice(0, 10)}
-                    value={entry.expiration_date}
-                    onChange={(e) => setEntry({ ...entry, expiration_date: e.target.value })}
-                    required={requiresExpiration}
-                  />
-                </Field>
-                <Field label="Observação">
-                  <Input
-                    value={entry.observation}
-                    onChange={(e) => setEntry({ ...entry, observation: e.target.value })}
-                    placeholder="Opcional"
-                    maxLength={500}
-                  />
-                </Field>
-              </div>
-            </div>
-          )}
-
-          {(isEntryMode || isEditMode) && validation.length > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-2 text-sm text-amber-900">
-              <AlertCircle className="size-4 mt-0.5 shrink-0" />
-              <ul className="list-disc list-inside space-y-0.5">
-                {validation.map((m) => <li key={m}>{m}</li>)}
-              </ul>
-            </div>
-          )}
-
-          {(isEntryMode || isEditMode) && (
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={reset} type="button" disabled={submitMut.isPending}>
-                Cancelar
+          <DialogFooter className="gap-2 pt-2">
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              {readOnly ? "Fechar" : "Cancelar"}
+            </Button>
+            {!readOnly && (
+              <Button onClick={() => void handleSubmit()} disabled={saveMutation.isPending}>
+                {saveMutation.isPending ? "Salvando..." : "Salvar"}
               </Button>
-              <Button type="submit" disabled={!canSubmit || submitMut.isPending} className="min-w-44">
-                {submitMut.isPending ? (
-                  <><Loader2 className="size-4 mr-2 animate-spin" /> Salvando...</>
-                ) : isEditMode ? (
-                  "Salvar alterações"
-                ) : mode === "existing-entry" ? (
-                  "Registrar entrada"
-                ) : (
-                  "Cadastrar + Entrada"
-                )}
-              </Button>
-            </div>
-          )}
-        </form>
-
-        {/* Sidebar column: progress + recent */}
-        <aside className="space-y-4">
-          <ProgressWidget
-            today={statsQuery.data?.today ?? 0}
-            week={statsQuery.data?.week ?? 0}
-            total={statsQuery.data?.total ?? 0}
-            goal={statsQuery.data?.goal ?? 1500}
-          />
-          <RecentPanel
-            rows={recentQuery.data ?? []}
-            loading={recentQuery.isLoading}
-            onOpen={openRecent}
-          />
-        </aside>
-      </div>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }
 
-function Field({
-  label, children, required, error,
-}: { label: string; children: React.ReactNode; required?: boolean; error?: string }) {
+function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-1.5">
-      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-        {label}{required && <span className="text-rose-600 ml-0.5">*</span>}
-      </Label>
+    <section className="space-y-3">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        {title}
+      </h3>
       {children}
-      {error && <p className="text-[11px] text-rose-600">{error}</p>}
-    </div>
+    </section>
   );
 }
 
-function ToggleRow({
-  label, checked, onChange,
-}: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+function Toggle({
+  label,
+  checked,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
   return (
-    <label className="flex items-center justify-between gap-3 px-3 h-10 rounded-md border border-border bg-background text-sm cursor-pointer">
+    <label className="flex items-center justify-between gap-3 rounded-md border border-border px-3 h-10 text-sm">
       <span>{label}</span>
-      <Switch checked={checked} onCheckedChange={onChange} />
+      <Switch checked={checked} onCheckedChange={onChange} disabled={disabled} />
     </label>
-  );
-}
-
-function Stat({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div className="rounded-md border border-border bg-background px-3 py-2">
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className={cn("text-sm font-medium mt-0.5 truncate", mono && "font-mono")}>{value}</div>
-    </div>
-  );
-}
-
-function formatDate(iso: string) {
-  try {
-    return new Date(iso + (iso.length === 10 ? "T00:00:00" : "")).toLocaleDateString("pt-BR");
-  } catch { return iso; }
-}
-function formatDateTime(iso: string) {
-  try { return new Date(iso).toLocaleString("pt-BR", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" }); }
-  catch { return iso; }
-}
-
-/* --- Combobox for FK refs with inline creation --- */
-function RefCombobox({
-  value, options, placeholder, createLabel, onChange, createFn, invalidateKey, optionsKey,
-}: {
-  value: string;
-  options: RefOption[];
-  placeholder: string;
-  createLabel: string;
-  onChange: (id: string) => void;
-  createFn: (args: { data: { name: string } }) => Promise<RefOption>;
-  invalidateKey: string[];
-  optionsKey: "categories" | "suppliers";
-}) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const qc = useQueryClient();
-  const call = useServerFn(createFn as never) as unknown as (args: { data: { name: string } }) => Promise<RefOption>;
-
-  const selected = options.find((o) => o.id === value);
-  const filtered = options.filter((o) => o.name.toLowerCase().includes(search.toLowerCase()));
-  const exact = options.some((o) => o.name.toLowerCase() === search.trim().toLowerCase());
-
-  const createMut = useMutation({
-    mutationFn: (name: string) => call({ data: { name } }),
-    onSuccess: (row) => {
-      toast.success(`Criado: ${row.name}`);
-      onChange(row.id);
-      setOpen(false); setSearch("");
-      qc.setQueryData(invalidateKey, (old: unknown) => {
-        if (!old || typeof old !== "object") return old;
-        const o = old as Record<string, RefOption[]>;
-        return { ...o, [optionsKey]: [...(o[optionsKey] ?? []), row].sort((a, b) => a.name.localeCompare(b.name)) };
-      });
-      qc.invalidateQueries({ queryKey: invalidateKey });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button type="button" variant="outline" role="combobox"
-          className={cn("w-full justify-between font-normal", !selected && "text-muted-foreground")}>
-          {selected?.name ?? placeholder}
-          <ChevronsUpDown className="size-4 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" align="start">
-        <Command shouldFilter={false}>
-          <CommandInput placeholder="Buscar..." value={search} onValueChange={setSearch} />
-          <CommandList>
-            <CommandEmpty>Nenhum resultado</CommandEmpty>
-            <CommandGroup>
-              {filtered.map((o) => (
-                <CommandItem key={o.id} value={o.id} onSelect={() => { onChange(o.id); setOpen(false); setSearch(""); }}>
-                  <Check className={cn("size-4 mr-2", value === o.id ? "opacity-100" : "opacity-0")} />
-                  {o.name}
-                </CommandItem>
-              ))}
-              {search.trim().length >= 2 && !exact && (
-                <CommandItem
-                  value="__create__"
-                  onSelect={() => createMut.mutate(search.trim())}
-                  disabled={createMut.isPending}
-                >
-                  {createMut.isPending
-                    ? <Loader2 className="size-4 mr-2 animate-spin" />
-                    : <Plus className="size-4 mr-2" />}
-                  {createLabel}: "{search.trim()}"
-                </CommandItem>
-              )}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-/* Free-text combobox for suggestions without a table (Manufacturer, Unit) */
-function FreeCombobox({
-  value, options, placeholder, onChange,
-}: { value: string; options: string[]; placeholder: string; onChange: (v: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState(value);
-  useEffect(() => { setSearch(value); }, [value]);
-  const filtered = options.filter((o) => o.toLowerCase().includes(search.toLowerCase())).slice(0, 20);
-  const exact = options.some((o) => o.toLowerCase() === search.trim().toLowerCase());
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button type="button" variant="outline" role="combobox"
-          className={cn("w-full justify-between font-normal", !value && "text-muted-foreground")}>
-          {value || placeholder}
-          <ChevronsUpDown className="size-4 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" align="start">
-        <Command shouldFilter={false}>
-          <CommandInput placeholder="Buscar ou digitar..." value={search} onValueChange={setSearch} />
-          <CommandList>
-            <CommandEmpty>Nenhum registro</CommandEmpty>
-            <CommandGroup>
-              {filtered.map((o) => (
-                <CommandItem key={o} value={o} onSelect={() => { onChange(o); setOpen(false); }}>
-                  <Check className={cn("size-4 mr-2", value === o ? "opacity-100" : "opacity-0")} />
-                  {o}
-                </CommandItem>
-              ))}
-              {search.trim().length >= 1 && !exact && (
-                <CommandItem value="__use__" onSelect={() => { onChange(search.trim()); setOpen(false); }}>
-                  <Plus className="size-4 mr-2" /> Usar "{search.trim()}"
-                </CommandItem>
-              )}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function ProgressWidget({
-  today, week, total, goal,
-}: { today: number; week: number; total: number; goal: number }) {
-  const pct = goal > 0 ? Math.min(100, (total / goal) * 100) : 0;
-  return (
-    <div className="bg-card border border-border rounded-lg p-5">
-      <div className="flex items-center gap-2 text-sm font-medium">
-        <Target className="size-4 text-primary" /> Progresso da implantação
-      </div>
-      <div className="grid grid-cols-3 gap-3 mt-4">
-        <div>
-          <div className="text-2xl font-semibold">{today}</div>
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">Hoje</div>
-        </div>
-        <div>
-          <div className="text-2xl font-semibold">{week}</div>
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">Semana</div>
-        </div>
-        <div>
-          <div className="text-2xl font-semibold">{total}</div>
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">Total</div>
-        </div>
-      </div>
-      <div className="mt-4">
-        <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
-          <span>{total} / {goal}</span>
-          <span>{pct.toFixed(0)}%</span>
-        </div>
-        <Progress value={pct} />
-      </div>
-    </div>
-  );
-}
-
-function RecentPanel({
-  rows, loading, onOpen,
-}: {
-  rows: import("@/lib/master.functions").RecentEntry[];
-  loading: boolean;
-  onOpen: (product_id: string) => void;
-}) {
-  return (
-    <div className="bg-card border border-border rounded-lg p-5">
-      <div className="flex items-center gap-2 text-sm font-medium">
-        <History className="size-4 text-primary" /> Últimos 10 cadastros
-      </div>
-      <div className="mt-3 -mx-2">
-        {loading ? (
-          <div className="text-xs text-muted-foreground px-2 py-4 flex items-center gap-1.5">
-            <Loader2 className="size-3 animate-spin" /> Carregando...
-          </div>
-        ) : rows.length === 0 ? (
-          <div className="text-xs text-muted-foreground px-2 py-4">Nenhuma entrada ainda.</div>
-        ) : (
-          <ul className="divide-y divide-border">
-            {rows.map((r) => (
-              <li key={r.id}>
-                <button
-                  type="button"
-                  onClick={() => onOpen(r.product_id)}
-                  className="w-full text-left px-2 py-2.5 hover:bg-muted/40 rounded"
-                >
-                  <div className="text-sm font-medium truncate">{r.description}</div>
-                  <div className="text-[11px] text-muted-foreground flex gap-2 flex-wrap mt-0.5">
-                    {r.barcode && <span className="font-mono">{r.barcode}</span>}
-                    {r.category_name && <span>{r.category_name}</span>}
-                    {r.batch && <span>Lote {r.batch}</span>}
-                    <span>Qtd {r.quantity}</span>
-                    <span>{formatDateTime(r.occurred_at)}</span>
-                    {r.user_name && <span>· {r.user_name}</span>}
-                  </div>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
   );
 }
