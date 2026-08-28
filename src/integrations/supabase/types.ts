@@ -351,6 +351,29 @@ export type Database = {
           },
         ]
       }
+      product_code_sequences: {
+        Row: {
+          hospital_id: string
+          last_value: number
+        }
+        Insert: {
+          hospital_id: string
+          last_value?: number
+        }
+        Update: {
+          hospital_id?: string
+          last_value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_code_sequences_hospital_id_fkey"
+            columns: ["hospital_id"]
+            isOneToOne: true
+            referencedRelation: "hospitals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_gtins: {
         Row: {
           created_at: string
@@ -1199,7 +1222,12 @@ export type Database = {
       }
     }
     Functions: {
+      can_manage_product_catalog: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       can_operate_stock: { Args: { _user_id: string }; Returns: boolean }
+      create_product: { Args: { p: Json }; Returns: Json }
       create_product_with_initial_entry: {
         Args: { p_entry: Json; p_product: Json }
         Returns: Json
@@ -1224,6 +1252,10 @@ export type Database = {
           p_quantity: number
         }
         Returns: Json
+      }
+      generate_product_internal_code: {
+        Args: { p_hospital_id: string }
+        Returns: string
       }
       has_role: {
         Args: {
