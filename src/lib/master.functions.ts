@@ -471,13 +471,27 @@ const catalogProductSchema = z.object({
 export const createProduct = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => catalogProductSchema.parse(input))
-  .handler(async ({ data, context }): Promise<{ id: string; internal_code: string }> => {
-    const { data: result, error } = await context.supabase.rpc("create_product", {
-      p: data as never,
-    });
-    if (error) throw new Error(CREATE_PRODUCT_ERRORS[error.message] ?? error.message);
-    return result as { id: string; internal_code: string };
-  });
+  .handler(
+    async ({
+      data,
+      context,
+    }): Promise<
+      | { ok: true; id: string; internal_code: string }
+      | { ok: false; error: string }
+    > => {
+      const { data: result, error } = await context.supabase.rpc("create_product", {
+        p: data as never,
+      });
+      // Falhas de validação de negócio voltam como resultado, não como exceção,
+      // para não derrubar a tela com um erro de runtime.
+      if (error) {
+        return { ok: false, error: CREATE_PRODUCT_ERRORS[error.message] ?? error.message };
+      }
+      const r = result as { id: string; internal_code: string };
+      return { ok: true, id: r.id, internal_code: r.internal_code };
+    },
+  );
+
 
 const updateCatalogSchema = z.object({
   id: z.string().uuid(),
