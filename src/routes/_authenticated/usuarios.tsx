@@ -48,8 +48,11 @@ function Page() {
     queryClient.invalidateQueries({ queryKey: ["managed-users"] });
 
   const addMutation = useMutation({
-    mutationFn: (input: { user_id: string; role: AppRole }) =>
-      setUserRole({ data: input }),
+    mutationFn: async (input: { user_id: string; role: AppRole }) => {
+      const res = await setUserRole({ data: input });
+      if (!res.ok) throw new Error(res.error);
+      return res;
+    },
     onSuccess: () => {
       toast.success("Papel atribuído com sucesso.");
       invalidate();
@@ -58,8 +61,11 @@ function Page() {
   });
 
   const removeMutation = useMutation({
-    mutationFn: (input: { user_id: string; role: AppRole }) =>
-      removeUserRole({ data: input }),
+    mutationFn: async (input: { user_id: string; role: AppRole }) => {
+      const res = await removeUserRole({ data: input });
+      if (!res.ok) throw new Error(res.error);
+      return res;
+    },
     onSuccess: () => {
       toast.success("Papel removido.");
       invalidate();
