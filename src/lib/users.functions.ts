@@ -109,8 +109,8 @@ export const setUserRole = createServerFn({ method: "POST" })
       { user_id: data.user_id, role: data.role, hospital_id: me.hospital_id },
       { onConflict: "user_id,role,hospital_id", ignoreDuplicates: true },
     );
-    if (error) throw new Error(error.message);
-    return { ok: true };
+    if (error) return { ok: false as const, error: error.message };
+    return { ok: true as const };
   });
 
 export const removeUserRole = createServerFn({ method: "POST" })
@@ -132,7 +132,10 @@ export const removeUserRole = createServerFn({ method: "POST" })
         .eq("role", "administrator")
         .eq("hospital_id", me?.hospital_id ?? "");
       if ((count ?? 0) <= 1) {
-        throw new Error("Não é possível remover o único administrador do hospital.");
+        return {
+          ok: false as const,
+          error: "Não é possível remover o único administrador do hospital.",
+        };
       }
     }
 
@@ -141,6 +144,6 @@ export const removeUserRole = createServerFn({ method: "POST" })
       .delete()
       .eq("user_id", data.user_id)
       .eq("role", data.role);
-    if (error) throw new Error(error.message);
-    return { ok: true };
+    if (error) return { ok: false as const, error: error.message };
+    return { ok: true as const };
   });
