@@ -284,7 +284,12 @@ function Page() {
                 <Label>Tipo de movimento</Label>
                 <Select
                   value={movementType}
-                  onValueChange={(v) => { setMovementType(v as MovementType); focusBarcode(); }}
+                  onValueChange={(v) => {
+                    const t = v as MovementType;
+                    setMovementType(t);
+                    if (t === "transfer") { setTransferBatchKey(""); setBatch(""); setExpiration(""); }
+                    focusBarcode();
+                  }}
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
