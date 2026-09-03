@@ -184,6 +184,29 @@ function Page() {
   const isInbound = INBOUND_TYPES.includes(movementType);
   const isOutbound = OUTBOUND_TYPES.includes(movementType);
 
+  // ---- Transfer-specific: known batches at the origin center ----
+  const transferBatches = useMemo(() => {
+    if (!isTransfer || !product || !stockCenterId) return [];
+    return product.batches.filter(
+      (b) => b.stock_center_id === stockCenterId && b.quantity > 0,
+    );
+  }, [isTransfer, product, stockCenterId]);
+
+  const batchKey = (b: { batch: string | null; expiration_date: string | null }) =>
+    `${b.batch ?? ""}|${b.expiration_date ?? ""}`;
+
+  const selectedTransferBatch = useMemo(
+    () => transferBatches.find((b) => batchKey(b) === transferBatchKey) ?? null,
+    [transferBatches, transferBatchKey],
+  );
+
+  const qtyNum = Number(quantity);
+  const transferQtyError = isTransfer && selectedTransferBatch &&
+    Number.isFinite(qtyNum) && qtyNum > selectedTransferBatch.quantity;
+  const transferBlocked = isTransfer && !!product && (
+    transferBatches.length === 0 || !selectedTransferBatch || !!transferQtyError
+  );
+
   const handleSubmit = useCallback(() => {
     if (!product) { toast.error("Nenhum produto selecionado"); focusBarcode(); return; }
     if (!stockCenterId) { toast.error("Selecione o local de estoque"); return; }
