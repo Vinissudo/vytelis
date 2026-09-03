@@ -240,7 +240,7 @@ function Page() {
         client_datetime: new Date().toISOString(),
       },
     });
-  }, [product, stockCenterId, isTransfer, destCenterId, quantity, needsBatch, batch, needsExpiration, expiration, movementType, unitCost, reason, observation, registerMut, focusBarcode]);
+  placeholder-deps-fix
 
   // Global keyboard: Ctrl+Enter submit; Esc clear
   useEffect(() => {
