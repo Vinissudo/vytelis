@@ -79,6 +79,7 @@ function Page() {
   const [expiration, setExpiration] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unitCost, setUnitCost] = useState("");
+  const [transferBatchKey, setTransferBatchKey] = useState("");
   const [reason, setReason] = useState("");
   const [observation, setObservation] = useState("");
 
@@ -123,7 +124,7 @@ function Page() {
 
   const resetForm = useCallback(() => {
     setBatch(""); setExpiration(""); setQuantity(""); setUnitCost("");
-    setReason(""); setObservation(""); setDestCenterId("");
+    setReason(""); setObservation(""); setDestCenterId(""); setTransferBatchKey("");
   }, []);
 
   const clearAll = useCallback(() => {
@@ -183,15 +184,46 @@ function Page() {
   const isInbound = INBOUND_TYPES.includes(movementType);
   const isOutbound = OUTBOUND_TYPES.includes(movementType);
 
+  // ---- Transfer-specific: known batches at the origin center ----
+  const transferBatches = useMemo(() => {
+    if (!isTransfer || !product || !stockCenterId) return [];
+    return product.batches.filter(
+      (b) => b.stock_center_id === stockCenterId && b.quantity > 0,
+    );
+  }, [isTransfer, product, stockCenterId]);
+
+  const batchKey = (b: { batch: string | null; expiration_date: string | null }) =>
+    `${b.batch ?? ""}|${b.expiration_date ?? ""}`;
+
+  const selectedTransferBatch = useMemo(
+    () => transferBatches.find((b) => batchKey(b) === transferBatchKey) ?? null,
+    [transferBatches, transferBatchKey],
+  );
+
+  const qtyNum = Number(quantity);
+  const transferQtyError = isTransfer && selectedTransferBatch &&
+    Number.isFinite(qtyNum) && qtyNum > selectedTransferBatch.quantity;
+  const transferBlocked = isTransfer && !!product && (
+    transferBatches.length === 0 || !selectedTransferBatch || !!transferQtyError
+  );
+
   const handleSubmit = useCallback(() => {
     if (!product) { toast.error("Nenhum produto selecionado"); focusBarcode(); return; }
     if (!stockCenterId) { toast.error("Selecione o local de estoque"); return; }
     if (isTransfer && !destCenterId) { toast.error("Selecione o destino da transferência"); return; }
     if (isTransfer && destCenterId === stockCenterId) { toast.error("Origem e destino devem ser diferentes"); return; }
+    if (isTransfer) {
+      if (transferBatches.length === 0) { toast.error("Nenhum lote disponível neste local para este produto"); return; }
+      if (!selectedTransferBatch) { toast.error("Selecione o lote de origem"); return; }
+      const q = Number(quantity);
+      if (Number.isFinite(q) && q > selectedTransferBatch.quantity) {
+        toast.error(`Quantidade maior que o disponível no lote (${fmtQty(selectedTransferBatch.quantity)})`); return;
+      }
+    }
     const qty = Number(quantity);
     if (!Number.isFinite(qty) || qty <= 0) { toast.error("Quantidade inválida"); return; }
-    if (needsBatch && !batch.trim()) { toast.error("Lote obrigatório para este produto"); return; }
-    if (needsExpiration && !expiration) { toast.error("Validade obrigatória para este produto"); return; }
+    if (!isTransfer && needsBatch && !batch.trim()) { toast.error("Lote obrigatório para este produto"); return; }
+    if (!isTransfer && needsExpiration && !expiration) { toast.error("Validade obrigatória para este produto"); return; }
 
     registerMut.mutate({
       data: {
@@ -208,7 +240,7 @@ function Page() {
         client_datetime: new Date().toISOString(),
       },
     });
-  }, [product, stockCenterId, isTransfer, destCenterId, quantity, needsBatch, batch, needsExpiration, expiration, movementType, unitCost, reason, observation, registerMut, focusBarcode]);
+  }, [product, stockCenterId, isTransfer, destCenterId, quantity, needsBatch, batch, needsExpiration, expiration, movementType, unitCost, reason, observation, registerMut, focusBarcode, transferBatches, selectedTransferBatch]);
 
   // Global keyboard: Ctrl+Enter submit; Esc clear
   useEffect(() => {
@@ -252,7 +284,12 @@ function Page() {
                 <Label>Tipo de movimento</Label>
                 <Select
                   value={movementType}
-                  onValueChange={(v) => { setMovementType(v as MovementType); focusBarcode(); }}
+                  onValueChange={(v) => {
+                    const t = v as MovementType;
+                    setMovementType(t);
+                    if (t === "transfer") { setTransferBatchKey(""); setBatch(""); setExpiration(""); }
+                    focusBarcode();
+                  }}
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -367,7 +404,13 @@ function Page() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label>{isTransfer ? "Origem" : "Local de estoque"}</Label>
-                    <Select value={stockCenterId} onValueChange={setStockCenterId}>
+                    <Select
+                      value={stockCenterId}
+                      onValueChange={(v) => {
+                        setStockCenterId(v);
+                        if (isTransfer) { setTransferBatchKey(""); setBatch(""); setExpiration(""); }
+                      }}
+                    >
                       <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                       <SelectContent>
                         {(centersQuery.data ?? []).map((c) => (
@@ -392,20 +435,60 @@ function Page() {
                     </div>
                   )}
 
-                  <div className="space-y-1.5">
-                    <Label>
-                      Lote {needsBatch && <span className="text-red-600">*</span>}
-                    </Label>
-                    <Input value={batch} onChange={(e) => setBatch(e.target.value)}
-                           className={cn("font-mono", needsBatch && !batch && "border-red-300")} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>
-                      Validade {needsExpiration && <span className="text-red-600">*</span>}
-                    </Label>
-                    <Input type="date" value={expiration} onChange={(e) => setExpiration(e.target.value)}
-                           className={cn(needsExpiration && !expiration && "border-red-300")} />
-                  </div>
+                  {isTransfer ? (
+                    <div className="space-y-1.5 md:col-span-2">
+                      <Label>Lote de origem <span className="text-red-600">*</span></Label>
+                      {transferBatches.length === 0 ? (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+                          Nenhum lote disponível neste local para este produto.
+                        </div>
+                      ) : (
+                        <>
+                          <Select
+                            value={transferBatchKey}
+                            onValueChange={(k) => {
+                              setTransferBatchKey(k);
+                              const b = transferBatches.find((x) => batchKey(x) === k);
+                              if (b) { setBatch(b.batch ?? ""); setExpiration(b.expiration_date ?? ""); }
+                            }}
+                          >
+                            <SelectTrigger><SelectValue placeholder="Selecione o lote..." /></SelectTrigger>
+                            <SelectContent>
+                              {transferBatches.map((b) => (
+                                <SelectItem key={batchKey(b)} value={batchKey(b)}>
+                                  Lote {b.batch ?? "—"} · Validade {b.expiration_date ? new Date(b.expiration_date + "T00:00:00").toLocaleDateString("pt-BR") : "—"} · Disponível {fmtQty(b.quantity)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {selectedTransferBatch && (
+                            <p className="text-xs text-muted-foreground">
+                              Validade: {selectedTransferBatch.expiration_date
+                                ? new Date(selectedTransferBatch.expiration_date + "T00:00:00").toLocaleDateString("pt-BR")
+                                : "—"}
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="space-y-1.5">
+                        <Label>
+                          Lote {needsBatch && <span className="text-red-600">*</span>}
+                        </Label>
+                        <Input value={batch} onChange={(e) => setBatch(e.target.value)}
+                               className={cn("font-mono", needsBatch && !batch && "border-red-300")} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>
+                          Validade {needsExpiration && <span className="text-red-600">*</span>}
+                        </Label>
+                        <Input type="date" value={expiration} onChange={(e) => setExpiration(e.target.value)}
+                               className={cn(needsExpiration && !expiration && "border-red-300")} />
+                      </div>
+                    </>
+                  )}
 
                   <div className="space-y-1.5">
                     <Label>Quantidade <span className="text-red-600">*</span></Label>
@@ -413,14 +496,23 @@ function Page() {
                       ref={quantityRef}
                       type="number" inputMode="decimal" step="0.001" min="0"
                       value={quantity} onChange={(e) => setQuantity(e.target.value)}
-                      className={cn(!quantity && "border-red-300")}
+                      className={cn(!quantity && "border-red-300", transferQtyError && "border-red-500")}
                     />
+                    {isTransfer && selectedTransferBatch && (
+                      <p className={cn("text-xs", transferQtyError ? "text-red-600 font-medium" : "text-muted-foreground")}>
+                        {transferQtyError
+                          ? `Quantidade maior que o disponível no lote (${fmtQty(selectedTransferBatch.quantity)}).`
+                          : `Disponível: ${fmtQty(selectedTransferBatch.quantity)}`}
+                      </p>
+                    )}
                   </div>
-                  <div className="space-y-1.5">
-                    <Label>Custo unitário {isInbound && <span className="text-muted-foreground text-xs">(recomendado)</span>}</Label>
-                    <Input type="number" inputMode="decimal" step="0.0001" min="0"
-                           value={unitCost} onChange={(e) => setUnitCost(e.target.value)} />
-                  </div>
+                  {!isTransfer && (
+                    <div className="space-y-1.5">
+                      <Label>Custo unitário {isInbound && <span className="text-muted-foreground text-xs">(recomendado)</span>}</Label>
+                      <Input type="number" inputMode="decimal" step="0.0001" min="0"
+                             value={unitCost} onChange={(e) => setUnitCost(e.target.value)} />
+                    </div>
+                  )}
 
                   <div className="space-y-1.5 md:col-span-2">
                     <Label>Motivo</Label>
@@ -441,7 +533,7 @@ function Page() {
                   </p>
                   <div className="flex gap-2">
                     <Button variant="ghost" onClick={clearAll}>Cancelar</Button>
-                    <Button onClick={handleSubmit} disabled={registerMut.isPending}>
+                    <Button onClick={handleSubmit} disabled={registerMut.isPending || transferBlocked}>
                       {registerMut.isPending
                         ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Registrando…</>
                         : <><CheckCircle2 className="h-4 w-4 mr-2" />Registrar movimento</>}
