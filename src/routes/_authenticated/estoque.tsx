@@ -212,6 +212,14 @@ function Page() {
     if (!stockCenterId) { toast.error("Selecione o local de estoque"); return; }
     if (isTransfer && !destCenterId) { toast.error("Selecione o destino da transferência"); return; }
     if (isTransfer && destCenterId === stockCenterId) { toast.error("Origem e destino devem ser diferentes"); return; }
+    if (isTransfer) {
+      if (transferBatches.length === 0) { toast.error("Nenhum lote disponível neste local para este produto"); return; }
+      if (!selectedTransferBatch) { toast.error("Selecione o lote de origem"); return; }
+      const q = Number(quantity);
+      if (Number.isFinite(q) && q > selectedTransferBatch.quantity) {
+        toast.error(`Quantidade maior que o disponível no lote (${fmtQty(selectedTransferBatch.quantity)})`); return;
+      }
+    }
     const qty = Number(quantity);
     if (!Number.isFinite(qty) || qty <= 0) { toast.error("Quantidade inválida"); return; }
     if (needsBatch && !batch.trim()) { toast.error("Lote obrigatório para este produto"); return; }
