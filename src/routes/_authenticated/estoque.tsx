@@ -79,6 +79,7 @@ function Page() {
   const [expiration, setExpiration] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unitCost, setUnitCost] = useState("");
+  const [transferBatchKey, setTransferBatchKey] = useState("");
   const [reason, setReason] = useState("");
   const [observation, setObservation] = useState("");
 
@@ -123,7 +124,7 @@ function Page() {
 
   const resetForm = useCallback(() => {
     setBatch(""); setExpiration(""); setQuantity(""); setUnitCost("");
-    setReason(""); setObservation(""); setDestCenterId("");
+    setReason(""); setObservation(""); setDestCenterId(""); setTransferBatchKey("");
   }, []);
 
   const clearAll = useCallback(() => {
