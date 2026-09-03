@@ -222,8 +222,8 @@ function Page() {
     }
     const qty = Number(quantity);
     if (!Number.isFinite(qty) || qty <= 0) { toast.error("Quantidade inválida"); return; }
-    if (needsBatch && !batch.trim()) { toast.error("Lote obrigatório para este produto"); return; }
-    if (needsExpiration && !expiration) { toast.error("Validade obrigatória para este produto"); return; }
+    if (!isTransfer && needsBatch && !batch.trim()) { toast.error("Lote obrigatório para este produto"); return; }
+    if (!isTransfer && needsExpiration && !expiration) { toast.error("Validade obrigatória para este produto"); return; }
 
     registerMut.mutate({
       data: {
