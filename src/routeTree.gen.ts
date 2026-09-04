@@ -21,13 +21,9 @@ import { Route as AuthenticatedProdutosRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedLocaisRouteImport } from './routes/_authenticated/locais'
 import { Route as AuthenticatedLeitosRouteImport } from './routes/_authenticated/leitos'
 import { Route as AuthenticatedInventarioRouteImport } from './routes/_authenticated/inventario'
-import { Route as AuthenticatedFarmaciaClinicaRouteImport } from './routes/_authenticated/farmacia-clinica'
 import { Route as AuthenticatedEstoqueRouteImport } from './routes/_authenticated/estoque'
-import { Route as AuthenticatedDispensacoesRouteImport } from './routes/_authenticated/dispensacoes'
-import { Route as AuthenticatedDevolucoesRouteImport } from './routes/_authenticated/devolucoes'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
-import { Route as AuthenticatedCentroCirurgicoRouteImport } from './routes/_authenticated/centro-cirurgico'
 import { Route as AuthenticatedAlmoxarifadoRouteImport } from './routes/_authenticated/almoxarifado'
 
 const AuthRoute = AuthRouteImport.update({
@@ -90,26 +86,9 @@ const AuthenticatedInventarioRoute = AuthenticatedInventarioRouteImport.update({
   path: '/inventario',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedFarmaciaClinicaRoute =
-  AuthenticatedFarmaciaClinicaRouteImport.update({
-    id: '/farmacia-clinica',
-    path: '/farmacia-clinica',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
 const AuthenticatedEstoqueRoute = AuthenticatedEstoqueRouteImport.update({
   id: '/estoque',
   path: '/estoque',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedDispensacoesRoute =
-  AuthenticatedDispensacoesRouteImport.update({
-    id: '/dispensacoes',
-    path: '/dispensacoes',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedDevolucoesRoute = AuthenticatedDevolucoesRouteImport.update({
-  id: '/devolucoes',
-  path: '/devolucoes',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
@@ -123,12 +102,6 @@ const AuthenticatedConfiguracoesRoute =
     path: '/configuracoes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedCentroCirurgicoRoute =
-  AuthenticatedCentroCirurgicoRouteImport.update({
-    id: '/centro-cirurgico',
-    path: '/centro-cirurgico',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
 const AuthenticatedAlmoxarifadoRoute =
   AuthenticatedAlmoxarifadoRouteImport.update({
     id: '/almoxarifado',
@@ -140,13 +113,9 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/almoxarifado': typeof AuthenticatedAlmoxarifadoRoute
-  '/centro-cirurgico': typeof AuthenticatedCentroCirurgicoRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/devolucoes': typeof AuthenticatedDevolucoesRoute
-  '/dispensacoes': typeof AuthenticatedDispensacoesRoute
   '/estoque': typeof AuthenticatedEstoqueRoute
-  '/farmacia-clinica': typeof AuthenticatedFarmaciaClinicaRoute
   '/inventario': typeof AuthenticatedInventarioRoute
   '/leitos': typeof AuthenticatedLeitosRoute
   '/locais': typeof AuthenticatedLocaisRoute
@@ -161,13 +130,9 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/almoxarifado': typeof AuthenticatedAlmoxarifadoRoute
-  '/centro-cirurgico': typeof AuthenticatedCentroCirurgicoRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/devolucoes': typeof AuthenticatedDevolucoesRoute
-  '/dispensacoes': typeof AuthenticatedDispensacoesRoute
   '/estoque': typeof AuthenticatedEstoqueRoute
-  '/farmacia-clinica': typeof AuthenticatedFarmaciaClinicaRoute
   '/inventario': typeof AuthenticatedInventarioRoute
   '/leitos': typeof AuthenticatedLeitosRoute
   '/locais': typeof AuthenticatedLocaisRoute
@@ -184,13 +149,9 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/almoxarifado': typeof AuthenticatedAlmoxarifadoRoute
-  '/_authenticated/centro-cirurgico': typeof AuthenticatedCentroCirurgicoRoute
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/devolucoes': typeof AuthenticatedDevolucoesRoute
-  '/_authenticated/dispensacoes': typeof AuthenticatedDispensacoesRoute
   '/_authenticated/estoque': typeof AuthenticatedEstoqueRoute
-  '/_authenticated/farmacia-clinica': typeof AuthenticatedFarmaciaClinicaRoute
   '/_authenticated/inventario': typeof AuthenticatedInventarioRoute
   '/_authenticated/leitos': typeof AuthenticatedLeitosRoute
   '/_authenticated/locais': typeof AuthenticatedLocaisRoute
@@ -207,13 +168,9 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/almoxarifado'
-    | '/centro-cirurgico'
     | '/configuracoes'
     | '/dashboard'
-    | '/devolucoes'
-    | '/dispensacoes'
     | '/estoque'
-    | '/farmacia-clinica'
     | '/inventario'
     | '/leitos'
     | '/locais'
@@ -228,13 +185,9 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/almoxarifado'
-    | '/centro-cirurgico'
     | '/configuracoes'
     | '/dashboard'
-    | '/devolucoes'
-    | '/dispensacoes'
     | '/estoque'
-    | '/farmacia-clinica'
     | '/inventario'
     | '/leitos'
     | '/locais'
@@ -250,13 +203,9 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/almoxarifado'
-    | '/_authenticated/centro-cirurgico'
     | '/_authenticated/configuracoes'
     | '/_authenticated/dashboard'
-    | '/_authenticated/devolucoes'
-    | '/_authenticated/dispensacoes'
     | '/_authenticated/estoque'
-    | '/_authenticated/farmacia-clinica'
     | '/_authenticated/inventario'
     | '/_authenticated/leitos'
     | '/_authenticated/locais'
@@ -360,32 +309,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedInventarioRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/farmacia-clinica': {
-      id: '/_authenticated/farmacia-clinica'
-      path: '/farmacia-clinica'
-      fullPath: '/farmacia-clinica'
-      preLoaderRoute: typeof AuthenticatedFarmaciaClinicaRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/estoque': {
       id: '/_authenticated/estoque'
       path: '/estoque'
       fullPath: '/estoque'
       preLoaderRoute: typeof AuthenticatedEstoqueRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/dispensacoes': {
-      id: '/_authenticated/dispensacoes'
-      path: '/dispensacoes'
-      fullPath: '/dispensacoes'
-      preLoaderRoute: typeof AuthenticatedDispensacoesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/devolucoes': {
-      id: '/_authenticated/devolucoes'
-      path: '/devolucoes'
-      fullPath: '/devolucoes'
-      preLoaderRoute: typeof AuthenticatedDevolucoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dashboard': {
@@ -402,13 +330,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedConfiguracoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/centro-cirurgico': {
-      id: '/_authenticated/centro-cirurgico'
-      path: '/centro-cirurgico'
-      fullPath: '/centro-cirurgico'
-      preLoaderRoute: typeof AuthenticatedCentroCirurgicoRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/almoxarifado': {
       id: '/_authenticated/almoxarifado'
       path: '/almoxarifado'
@@ -421,13 +342,9 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAlmoxarifadoRoute: typeof AuthenticatedAlmoxarifadoRoute
-  AuthenticatedCentroCirurgicoRoute: typeof AuthenticatedCentroCirurgicoRoute
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedDevolucoesRoute: typeof AuthenticatedDevolucoesRoute
-  AuthenticatedDispensacoesRoute: typeof AuthenticatedDispensacoesRoute
   AuthenticatedEstoqueRoute: typeof AuthenticatedEstoqueRoute
-  AuthenticatedFarmaciaClinicaRoute: typeof AuthenticatedFarmaciaClinicaRoute
   AuthenticatedInventarioRoute: typeof AuthenticatedInventarioRoute
   AuthenticatedLeitosRoute: typeof AuthenticatedLeitosRoute
   AuthenticatedLocaisRoute: typeof AuthenticatedLocaisRoute
@@ -441,13 +358,9 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAlmoxarifadoRoute: AuthenticatedAlmoxarifadoRoute,
-  AuthenticatedCentroCirurgicoRoute: AuthenticatedCentroCirurgicoRoute,
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedDevolucoesRoute: AuthenticatedDevolucoesRoute,
-  AuthenticatedDispensacoesRoute: AuthenticatedDispensacoesRoute,
   AuthenticatedEstoqueRoute: AuthenticatedEstoqueRoute,
-  AuthenticatedFarmaciaClinicaRoute: AuthenticatedFarmaciaClinicaRoute,
   AuthenticatedInventarioRoute: AuthenticatedInventarioRoute,
   AuthenticatedLeitosRoute: AuthenticatedLeitosRoute,
   AuthenticatedLocaisRoute: AuthenticatedLocaisRoute,
