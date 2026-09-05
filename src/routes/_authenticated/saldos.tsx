@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import { AppShell } from "@/components/AppSidebar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,9 +10,11 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Loader2, Boxes, AlertTriangle, Layers } from "lucide-react";
+import { Loader2, Boxes, AlertTriangle, Layers, SlidersHorizontal, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { listStockBalances, type StockBalanceRow } from "@/lib/stock.functions";
+import {
+  listStockBalances, upsertThreshold, type StockBalanceRow,
+} from "@/lib/stock.functions";
 import { listMovementStockCenters } from "@/lib/movements.functions";
 
 export const Route = createFileRoute("/_authenticated/saldos")({
@@ -58,10 +61,49 @@ function fmtDate(d: string | null) {
 function Page() {
   const balancesFn = useServerFn(listStockBalances);
   const centersFn = useServerFn(listMovementStockCenters);
+  const thresholdFn = useServerFn(upsertThreshold);
+  const qc = useQueryClient();
 
   const [q, setQ] = useState("");
   const [locationId, setLocationId] = useState<string>("all");
   const [grouped, setGrouped] = useState(false);
+  const [limitsMode, setLimitsMode] = useState(false);
+  const [drafts, setDrafts] = useState<Record<string, { min: string; max: string }>>({});
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+
+  const saveThreshold = useMutation({
+    mutationFn: async (row: {
+      key: string; product_id: string; location_id: string; min: string; max: string;
+    }) => {
+      const min = Number(row.min);
+      const max = row.max.trim() === "" ? null : Number(row.max);
+      if (!Number.isFinite(min) || min < 0) throw new Error("Mínimo deve ser um número maior ou igual a zero.");
+      if (max != null && (!Number.isFinite(max) || max < 0)) {
+        throw new Error("Máximo deve ser um número maior ou igual a zero.");
+      }
+      if (max != null && max <= min) throw new Error("Máximo deve ser maior que o mínimo.");
+      setSavingKey(row.key);
+      return thresholdFn({
+        data: {
+          product_id: row.product_id,
+          location_id: row.location_id,
+          min_quantity: min,
+          max_quantity: max,
+        },
+      });
+    },
+    onSuccess: (_d, vars) => {
+      toast.success("Limites salvos.");
+      setDrafts((d) => {
+        const next = { ...d };
+        delete next[vars.key];
+        return next;
+      });
+      qc.invalidateQueries({ queryKey: ["stock-balances"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+    onSettled: () => setSavingKey(null),
+  });
 
   const centers = useQuery({
     queryKey: ["movement-centers"],
@@ -88,7 +130,8 @@ function Page() {
     const map = new Map<
       string,
       {
-        key: string; description: string; location_name: string; batches: number;
+        key: string; product_id: string; location_id: string;
+        description: string; location_name: string; batches: number;
         total: number; reserved: number; available: number;
         min: number | null; max: number | null; nextExp: string | null;
       }
@@ -96,7 +139,8 @@ function Page() {
     for (const r of rows) {
       const key = `${r.product_id}:${r.location_id}`;
       const cur = map.get(key) ?? {
-        key, description: r.description, location_name: r.location_name, batches: 0,
+        key, product_id: r.product_id, location_id: r.location_id,
+        description: r.description, location_name: r.location_name, batches: 0,
         total: 0, reserved: 0, available: 0, min: r.min_quantity, max: r.max_quantity, nextExp: null,
       };
       cur.batches += 1;
@@ -126,13 +170,23 @@ function Page() {
           </div>
           <div className="flex items-center gap-2">
             <Button
-              variant={grouped ? "default" : "outline"}
+              variant={limitsMode ? "default" : "outline"}
               size="sm"
-              onClick={() => setGrouped((v) => !v)}
+              onClick={() => setLimitsMode((v) => !v)}
             >
-              <Layers className="mr-2 h-4 w-4" />
-              {grouped ? "Ver por lote" : "Agrupar por produto"}
+              <SlidersHorizontal className="mr-2 h-4 w-4" />
+              {limitsMode ? "Ver saldos" : "Mínimo / Máximo"}
             </Button>
+            {!limitsMode && (
+              <Button
+                variant={grouped ? "default" : "outline"}
+                size="sm"
+                onClick={() => setGrouped((v) => !v)}
+              >
+                <Layers className="mr-2 h-4 w-4" />
+                {grouped ? "Ver por lote" : "Agrupar por produto"}
+              </Button>
+            )}
           </div>
         </header>
 
@@ -179,6 +233,99 @@ function Page() {
           </div>
         </div>
 
+        {limitsMode ? (
+          <div className="overflow-x-auto rounded-lg border bg-card">
+            <div className="border-b p-4">
+              <h2 className="text-sm font-semibold">Mínimo e máximo por produto e local</h2>
+              <p className="text-xs text-muted-foreground">
+                Defina os limites de reposição. O máximo, quando informado, deve ser maior que o
+                mínimo.
+              </p>
+            </div>
+            {balances.isLoading ? (
+              <div className="flex items-center justify-center gap-2 p-10 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Carregando…
+              </div>
+            ) : aggregated.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 p-10 text-muted-foreground">
+                <Boxes className="h-6 w-6" />
+                <p className="text-sm">Nenhum produto com saldo para os filtros atuais.</p>
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="p-3">Produto</th>
+                    <th className="p-3">Local</th>
+                    <th className="p-3 text-right">Disponível</th>
+                    <th className="p-3 w-32">Mínimo</th>
+                    <th className="p-3 w-32">Máximo</th>
+                    <th className="p-3 w-24" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {aggregated.map((a) => {
+                    const draft = drafts[a.key] ?? {
+                      min: a.min == null ? "" : String(a.min),
+                      max: a.max == null ? "" : String(a.max),
+                    };
+                    const dirty = drafts[a.key] != null;
+                    return (
+                      <tr key={a.key} className="border-t">
+                        <td className="p-3 font-medium">{a.description}</td>
+                        <td className="p-3">{a.location_name}</td>
+                        <td className="p-3 text-right">{fmt(a.available)}</td>
+                        <td className="p-3">
+                          <Input
+                            type="number"
+                            min={0}
+                            value={draft.min}
+                            placeholder="não definido"
+                            onChange={(e) =>
+                              setDrafts((d) => ({ ...d, [a.key]: { ...draft, min: e.target.value } }))
+                            }
+                          />
+                        </td>
+                        <td className="p-3">
+                          <Input
+                            type="number"
+                            min={0}
+                            value={draft.max}
+                            placeholder="não definido"
+                            onChange={(e) =>
+                              setDrafts((d) => ({ ...d, [a.key]: { ...draft, max: e.target.value } }))
+                            }
+                          />
+                        </td>
+                        <td className="p-3">
+                          <Button
+                            size="sm"
+                            disabled={!dirty || savingKey === a.key}
+                            onClick={() =>
+                              saveThreshold.mutate({
+                                key: a.key,
+                                product_id: a.product_id,
+                                location_id: a.location_id,
+                                min: draft.min,
+                                max: draft.max,
+                              })
+                            }
+                          >
+                            {savingKey === a.key ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Save className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        ) : (
         <div className="overflow-x-auto rounded-lg border bg-card">
           {balances.isLoading ? (
             <div className="flex items-center justify-center gap-2 p-10 text-muted-foreground">
