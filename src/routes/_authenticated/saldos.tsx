@@ -128,13 +128,23 @@ function Page() {
           </div>
           <div className="flex items-center gap-2">
             <Button
-              variant={grouped ? "default" : "outline"}
+              variant={limitsMode ? "default" : "outline"}
               size="sm"
-              onClick={() => setGrouped((v) => !v)}
+              onClick={() => setLimitsMode((v) => !v)}
             >
-              <Layers className="mr-2 h-4 w-4" />
-              {grouped ? "Ver por lote" : "Agrupar por produto"}
+              <SlidersHorizontal className="mr-2 h-4 w-4" />
+              {limitsMode ? "Ver saldos" : "Mínimo / Máximo"}
             </Button>
+            {!limitsMode && (
+              <Button
+                variant={grouped ? "default" : "outline"}
+                size="sm"
+                onClick={() => setGrouped((v) => !v)}
+              >
+                <Layers className="mr-2 h-4 w-4" />
+                {grouped ? "Ver por lote" : "Agrupar por produto"}
+              </Button>
+            )}
           </div>
         </header>
 
