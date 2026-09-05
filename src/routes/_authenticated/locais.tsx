@@ -1,113 +1,176 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import { AppShell } from "@/components/AppSidebar";
-import { CrudShell, FormDialog, Field, Input } from "@/components/Crud";
+import { CrudShell, FormDialog, Field, StatusBadge, Input } from "@/components/Crud";
+import { Loader2 } from "lucide-react";
+import {
+  listStockCenters,
+  createStockCenter,
+  updateStockCenter,
+  deleteStockCenter,
+  STOCK_CENTER_TYPES,
+  STOCK_CENTER_TYPE_LABELS,
+  type StockCenterRow,
+  type StockCenterType,
+} from "@/lib/locations.functions";
 
 export const Route = createFileRoute("/_authenticated/locais")({
-  head: () => ({ meta: [{ title: "Locais — HospitalFlow" }] }),
+  head: () => ({
+    meta: [
+      { title: "Locais de Estoque — Vytelis Supply" },
+      {
+        name: "description",
+        content:
+          "Cadastro dos locais físicos de estoque do hospital: almoxarifados, farmácias satélites e setores operacionais.",
+      },
+      { property: "og:title", content: "Locais de Estoque — Vytelis Supply" },
+      {
+        property: "og:description",
+        content: "Crie, edite e desative os locais de estoque usados nas movimentações.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: LocaisPage,
 });
 
-const TIPOS = [
-  "Almoxarifado Central",
-  "Farmácia Clínica",
-  "Farmácia UTI",
-  "Centro Cirúrgico",
-  "Pronto Socorro",
-] as const;
-type Tipo = (typeof TIPOS)[number];
-
-interface Local {
-  id: string;
-  nome: string;
-  tipo: Tipo;
-  observacao: string;
-}
-
-const initial: Local[] = [
-  { id: "l1", nome: "Almoxarifado Principal", tipo: "Almoxarifado Central", observacao: "Estoque geral" },
-  { id: "l2", nome: "Farmácia Clínica - 2º Andar", tipo: "Farmácia Clínica", observacao: "" },
-  { id: "l3", nome: "Farmácia UTI Adulto", tipo: "Farmácia UTI", observacao: "Atende UTI 1 e 2" },
-  { id: "l4", nome: "Centro Cirúrgico - Sala 3", tipo: "Centro Cirúrgico", observacao: "" },
-];
-
 function LocaisPage() {
-  const [rows, setRows] = useState<Local[]>(initial);
+  const listFn = useServerFn(listStockCenters);
+  const createFn = useServerFn(createStockCenter);
+  const updateFn = useServerFn(updateStockCenter);
+  const deleteFn = useServerFn(deleteStockCenter);
+  const qc = useQueryClient();
+
+  const centers = useQuery({
+    queryKey: ["stock-centers-admin"],
+    queryFn: () => listFn(),
+  });
+
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<Local | null>(null);
+  const [editing, setEditing] = useState<StockCenterRow | null>(null);
   const [nome, setNome] = useState("");
-  const [tipo, setTipo] = useState<Tipo>(TIPOS[0]);
-  const [observacao, setObservacao] = useState("");
+  const [tipo, setTipo] = useState<StockCenterType>("other");
+  const [ativo, setAtivo] = useState(true);
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["stock-centers-admin"] });
+    qc.invalidateQueries({ queryKey: ["movement-centers"] });
+    qc.invalidateQueries({ queryKey: ["stock-centers"] });
+  };
 
   const reset = () => {
     setEditing(null);
     setNome("");
-    setTipo(TIPOS[0]);
-    setObservacao("");
+    setTipo("other");
+    setAtivo(true);
   };
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const payload = { name: nome.trim(), type: tipo, active: ativo };
+      if (editing) return updateFn({ data: { id: editing.id, ...payload } });
+      return createFn({ data: payload });
+    },
+    onSuccess: () => {
+      toast.success(editing ? "Local atualizado." : "Local criado.");
+      setOpen(false);
+      reset();
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (row: StockCenterRow) => {
+      const res = await deleteFn({ data: { id: row.id } });
+      if (!res.ok) throw new Error(res.error ?? "Não foi possível excluir este local.");
+      return res;
+    },
+    onSuccess: () => {
+      toast.success("Local excluído.");
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message, { duration: 7000 }),
+  });
 
   const onAdd = () => {
     reset();
     setOpen(true);
   };
 
-  const onEdit = (l: Local) => {
-    setEditing(l);
-    setNome(l.nome);
-    setTipo(l.tipo);
-    setObservacao(l.observacao);
+  const onEdit = (row: StockCenterRow) => {
+    setEditing(row);
+    setNome(row.name);
+    setTipo(row.type);
+    setAtivo(row.active);
     setOpen(true);
   };
 
-  const onDelete = (l: Local) => {
-    if (confirm(`Excluir local "${l.nome}"?`)) setRows((r) => r.filter((x) => x.id !== l.id));
-  };
-
-  const onSubmit = () => {
-    if (!nome.trim()) return;
-    if (editing) {
-      setRows((r) =>
-        r.map((x) => (x.id === editing.id ? { ...x, nome, tipo, observacao } : x)),
+  const onDelete = (row: StockCenterRow) => {
+    if (row.balance_rows > 0) {
+      toast.error(
+        `"${row.name}" possui saldo de estoque e não pode ser excluído. Edite o local e marque como inativo para tirá-lo dos seletores.`,
+        { duration: 8000 },
       );
-    } else {
-      setRows((r) => [...r, { id: crypto.randomUUID(), nome, tipo, observacao }]);
+      return;
     }
-    setOpen(false);
-    reset();
+    if (confirm(`Excluir o local "${row.name}"?`)) remove.mutate(row);
   };
 
   return (
     <AppShell title="Locais">
-      <CrudShell
-        title="Locais"
-        description="Locais físicos do hospital — almoxarifados, farmácias e setores operacionais."
-        rows={rows}
-        columns={[
-          { key: "nome", label: "Nome" },
-          {
-            key: "tipo",
-            label: "Tipo",
-            render: (r) => (
-              <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                {r.tipo}
-              </span>
-            ),
-          },
-          {
-            key: "observacao",
-            label: "Observação",
-            render: (r) => (
-              <span className="text-muted-foreground">
-                {r.observacao || "—"}
-              </span>
-            ),
-          },
-        ]}
-        searchKeys={["nome", "tipo", "observacao"]}
-        onAdd={onAdd}
-        onEdit={onEdit}
-        onDelete={onDelete}
-      />
+      {centers.isLoading ? (
+        <div className="flex items-center justify-center gap-2 p-10 text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> Carregando locais…
+        </div>
+      ) : centers.isError ? (
+        <p className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          Não foi possível carregar os locais de estoque.
+        </p>
+      ) : (
+        <CrudShell
+          title="Locais de estoque"
+          description="Almoxarifados, farmácias e setores usados como origem e destino das movimentações."
+          rows={centers.data ?? []}
+          columns={[
+            { key: "name", label: "Nome" },
+            {
+              key: "type",
+              label: "Tipo",
+              render: (r) => (
+                <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                  {STOCK_CENTER_TYPE_LABELS[r.type] ?? r.type}
+                </span>
+              ),
+            },
+            {
+              key: "balance_rows",
+              label: "Saldos",
+              render: (r) => (
+                <span className="text-muted-foreground">
+                  {r.balance_rows === 0
+                    ? "Sem saldo"
+                    : `${r.balance_rows} lote(s) · ${r.total_quantity} un.`}
+                </span>
+              ),
+            },
+            {
+              key: "active",
+              label: "Situação",
+              render: (r) => <StatusBadge active={r.active} />,
+            },
+          ]}
+          searchKeys={["name"]}
+          onAdd={onAdd}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          emptyLabel="Nenhum local de estoque cadastrado"
+        />
+      )}
 
       <FormDialog
         open={open}
@@ -116,37 +179,46 @@ function LocaisPage() {
           if (!v) reset();
         }}
         title={editing ? "Editar local" : "Novo local"}
-        onSubmit={onSubmit}
+        onSubmit={() => {
+          if (nome.trim().length < 2) {
+            toast.error("Informe um nome com pelo menos 2 caracteres.");
+            return;
+          }
+          save.mutate();
+        }}
+        submitLabel={save.isPending ? "Salvando…" : "Salvar"}
       >
         <Field label="Nome">
           <Input
             value={nome}
             onChange={(e) => setNome(e.target.value)}
-            placeholder="Ex: Farmácia Clínica - 2º Andar"
+            placeholder="Ex: Farmácia UTI"
             autoFocus
           />
         </Field>
         <Field label="Tipo">
           <select
             value={tipo}
-            onChange={(e) => setTipo(e.target.value as Tipo)}
+            onChange={(e) => setTipo(e.target.value as StockCenterType)}
             className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm outline-none focus:ring-2 focus:ring-ring"
           >
-            {TIPOS.map((t) => (
+            {STOCK_CENTER_TYPES.map((t) => (
               <option key={t} value={t}>
-                {t}
+                {STOCK_CENTER_TYPE_LABELS[t]}
               </option>
             ))}
           </select>
         </Field>
-        <Field label="Observação">
-          <textarea
-            value={observacao}
-            onChange={(e) => setObservacao(e.target.value)}
-            placeholder="Observações sobre o local"
-            rows={3}
-            className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm outline-none focus:ring-2 focus:ring-ring resize-none"
-          />
+        <Field label="Situação">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={ativo}
+              onChange={(e) => setAtivo(e.target.checked)}
+              className="size-4 rounded border-input"
+            />
+            Local ativo (aparece nos seletores de origem/destino)
+          </label>
         </Field>
       </FormDialog>
     </AppShell>
