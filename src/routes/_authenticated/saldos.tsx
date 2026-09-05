@@ -233,6 +233,99 @@ function Page() {
           </div>
         </div>
 
+        {limitsMode ? (
+          <div className="overflow-x-auto rounded-lg border bg-card">
+            <div className="border-b p-4">
+              <h2 className="text-sm font-semibold">Mínimo e máximo por produto e local</h2>
+              <p className="text-xs text-muted-foreground">
+                Defina os limites de reposição. O máximo, quando informado, deve ser maior que o
+                mínimo.
+              </p>
+            </div>
+            {balances.isLoading ? (
+              <div className="flex items-center justify-center gap-2 p-10 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Carregando…
+              </div>
+            ) : aggregated.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 p-10 text-muted-foreground">
+                <Boxes className="h-6 w-6" />
+                <p className="text-sm">Nenhum produto com saldo para os filtros atuais.</p>
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="p-3">Produto</th>
+                    <th className="p-3">Local</th>
+                    <th className="p-3 text-right">Disponível</th>
+                    <th className="p-3 w-32">Mínimo</th>
+                    <th className="p-3 w-32">Máximo</th>
+                    <th className="p-3 w-24" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {aggregated.map((a) => {
+                    const draft = drafts[a.key] ?? {
+                      min: a.min == null ? "" : String(a.min),
+                      max: a.max == null ? "" : String(a.max),
+                    };
+                    const dirty = drafts[a.key] != null;
+                    return (
+                      <tr key={a.key} className="border-t">
+                        <td className="p-3 font-medium">{a.description}</td>
+                        <td className="p-3">{a.location_name}</td>
+                        <td className="p-3 text-right">{fmt(a.available)}</td>
+                        <td className="p-3">
+                          <Input
+                            type="number"
+                            min={0}
+                            value={draft.min}
+                            placeholder="não definido"
+                            onChange={(e) =>
+                              setDrafts((d) => ({ ...d, [a.key]: { ...draft, min: e.target.value } }))
+                            }
+                          />
+                        </td>
+                        <td className="p-3">
+                          <Input
+                            type="number"
+                            min={0}
+                            value={draft.max}
+                            placeholder="não definido"
+                            onChange={(e) =>
+                              setDrafts((d) => ({ ...d, [a.key]: { ...draft, max: e.target.value } }))
+                            }
+                          />
+                        </td>
+                        <td className="p-3">
+                          <Button
+                            size="sm"
+                            disabled={!dirty || savingKey === a.key}
+                            onClick={() =>
+                              saveThreshold.mutate({
+                                key: a.key,
+                                product_id: a.product_id,
+                                location_id: a.location_id,
+                                min: draft.min,
+                                max: draft.max,
+                              })
+                            }
+                          >
+                            {savingKey === a.key ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Save className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        ) : (
         <div className="overflow-x-auto rounded-lg border bg-card">
           {balances.isLoading ? (
             <div className="flex items-center justify-center gap-2 p-10 text-muted-foreground">
