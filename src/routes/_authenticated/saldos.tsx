@@ -61,10 +61,49 @@ function fmtDate(d: string | null) {
 function Page() {
   const balancesFn = useServerFn(listStockBalances);
   const centersFn = useServerFn(listMovementStockCenters);
+  const thresholdFn = useServerFn(upsertThreshold);
+  const qc = useQueryClient();
 
   const [q, setQ] = useState("");
   const [locationId, setLocationId] = useState<string>("all");
   const [grouped, setGrouped] = useState(false);
+  const [limitsMode, setLimitsMode] = useState(false);
+  const [drafts, setDrafts] = useState<Record<string, { min: string; max: string }>>({});
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+
+  const saveThreshold = useMutation({
+    mutationFn: async (row: {
+      key: string; product_id: string; location_id: string; min: string; max: string;
+    }) => {
+      const min = Number(row.min);
+      const max = row.max.trim() === "" ? null : Number(row.max);
+      if (!Number.isFinite(min) || min < 0) throw new Error("Mínimo deve ser um número maior ou igual a zero.");
+      if (max != null && (!Number.isFinite(max) || max < 0)) {
+        throw new Error("Máximo deve ser um número maior ou igual a zero.");
+      }
+      if (max != null && max <= min) throw new Error("Máximo deve ser maior que o mínimo.");
+      setSavingKey(row.key);
+      return thresholdFn({
+        data: {
+          product_id: row.product_id,
+          location_id: row.location_id,
+          min_quantity: min,
+          max_quantity: max,
+        },
+      });
+    },
+    onSuccess: (_d, vars) => {
+      toast.success("Limites salvos.");
+      setDrafts((d) => {
+        const next = { ...d };
+        delete next[vars.key];
+        return next;
+      });
+      qc.invalidateQueries({ queryKey: ["stock-balances"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+    onSettled: () => setSavingKey(null),
+  });
 
   const centers = useQuery({
     queryKey: ["movement-centers"],
