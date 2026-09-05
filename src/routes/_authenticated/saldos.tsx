@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import { AppShell } from "@/components/AppSidebar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,9 +10,11 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Loader2, Boxes, AlertTriangle, Layers } from "lucide-react";
+import { Loader2, Boxes, AlertTriangle, Layers, SlidersHorizontal, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { listStockBalances, type StockBalanceRow } from "@/lib/stock.functions";
+import {
+  listStockBalances, upsertThreshold, type StockBalanceRow,
+} from "@/lib/stock.functions";
 import { listMovementStockCenters } from "@/lib/movements.functions";
 
 export const Route = createFileRoute("/_authenticated/saldos")({
