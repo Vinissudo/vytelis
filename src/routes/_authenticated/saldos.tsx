@@ -88,7 +88,8 @@ function Page() {
     const map = new Map<
       string,
       {
-        key: string; description: string; location_name: string; batches: number;
+        key: string; product_id: string; location_id: string;
+        description: string; location_name: string; batches: number;
         total: number; reserved: number; available: number;
         min: number | null; max: number | null; nextExp: string | null;
       }
@@ -96,7 +97,8 @@ function Page() {
     for (const r of rows) {
       const key = `${r.product_id}:${r.location_id}`;
       const cur = map.get(key) ?? {
-        key, description: r.description, location_name: r.location_name, batches: 0,
+        key, product_id: r.product_id, location_id: r.location_id,
+        description: r.description, location_name: r.location_name, batches: 0,
         total: 0, reserved: 0, available: 0, min: r.min_quantity, max: r.max_quantity, nextExp: null,
       };
       cur.batches += 1;
