@@ -430,6 +430,7 @@ function Page() {
             </table>
           )}
         </div>
+        )}
       </div>
     </AppShell>
   );
